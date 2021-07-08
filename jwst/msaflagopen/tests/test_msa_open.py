@@ -1,6 +1,7 @@
 import numpy as np
 from numpy.testing import assert_array_equal
 import os
+import pytest
 
 from jwst.assign_wcs import AssignWcsStep
 from jwst.datamodels import ImageModel, dqflags
@@ -135,6 +136,7 @@ def test_boundingbox_from_indices():
     assert result == (1, 3, 3, 5)
 
 
+@pytest.mark.filterwarnings('ignore::RuntimeWarning')
 def test_msaflagopen_step():
     im = ImageModel((2048, 2048))
     im.meta.wcsinfo = {
