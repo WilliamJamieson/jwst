@@ -3,12 +3,6 @@ import math
 
 from .ConvergenceError import ConvergenceError
 from .BaseFitter import BaseFitter
-from .IterationPlotter import IterationPlotter
-from .GaussErrorDistribution import GaussErrorDistribution
-from .LaplaceErrorDistribution import LaplaceErrorDistribution
-from .CauchyErrorDistribution import CauchyErrorDistribution
-from .PoissonErrorDistribution import PoissonErrorDistribution
-from .ExponentialErrorDistribution import ExponentialErrorDistribution
 from .Formatter import formatter as fmt
 
 __author__ = "Do Kester"
@@ -39,7 +33,8 @@ __status__ = "Perpetual Beta"
 #  *    2003 - 2014 Do Kester, SRON (Java code)
 #  *    2016 - 2020 Do Kester
 
-class IterativeFitter( BaseFitter ):
+
+class IterativeFitter(BaseFitter):
     """
     Base class with methods common to all iterative fitters.
 
@@ -78,8 +73,8 @@ class IterativeFitter( BaseFitter ):
     ConvergenceError    Something went wrong during the convergence if the fit.
 
     """
-    def __init__( self, xdata, model, maxIter=None, tolerance=0.0001, verbose=1, **kwargs ) :
 
+    def __init__(self, xdata, model, maxIter=None, tolerance=0.0001, verbose=1, **kwargs):
         """
         Create a new iterative fitter, providing xdatas and model.
 
@@ -108,20 +103,20 @@ class IterativeFitter( BaseFitter ):
             map, keep, fixedScale
 
         """
-        super( IterativeFitter, self ).__init__( xdata, model, **kwargs )
+        super(IterativeFitter, self).__init__(xdata, model, **kwargs)
 
         self.tolerance = tolerance
-        if maxIter is None :
+        if maxIter is None:
             maxIter = 1000 * model.npchain
         self.maxIter = maxIter
         self.verbose = verbose
         self.tooLarge = 100
-        self.plotter = IterationPlotter()
+        #self.plotter = IterationPlotter()
 
         self.plotfreq = 0
 
     #  *************************************************************************
-    def setParameters( self, params ):
+    def setParameters(self, params):
         """
         Initialize the parameters of the model
         A little superfluous: see {@link Model#setParameters}
@@ -134,7 +129,7 @@ class IterativeFitter( BaseFitter ):
         """
         self.model.parameters = params
 
-    def doPlot( self, param, force=False ):
+    def doPlot(self, param, force=False):
         """
         Plot intermediate result.
 
@@ -146,11 +141,11 @@ class IterativeFitter( BaseFitter ):
             do the plot
 
         """
-        if ( self.plotfreq > 0 and self.iter % self.plotfreq == 0 ) or force :
-            y = self.model.result( self.xdata, param )
-            self.plotter.plotResult( self.xdata, y, self._iter )
+        if (self.plotfreq > 0 and self.iter % self.plotfreq == 0) or force:
+            y = self.model.result(self.xdata, param)
+            self.plotter.plotResult(self.xdata, y, self._iter)
 
-    def fitprolog( self, ydata, weights=None, keep=None ) :
+    def fitprolog(self, ydata, weights=None, keep=None):
         """
         Prolog for all iterative Fitters.
 
@@ -174,16 +169,16 @@ class IterativeFitter( BaseFitter ):
             Indices of the parameters that need fitting
 
         """
-        if self.plotfreq > 0 :
-            self.plotter.plotData( self.xdata, ydata, self.__str__( ) )
+        if self.plotfreq > 0:
+            self.plotter.plotData(self.xdata, ydata, self.__str__())
 
         self.iter = 0
         self.ntrans = 0
 
-        return super( IterativeFitter, self ).fitprolog( ydata, weights=weights, keep=keep )
+        return super(IterativeFitter, self).fitprolog(ydata, weights=weights, keep=keep)
 
     #  *************************************************************************
-    def fit( self, ydata, weights=None, keep=None, **kwargs ):
+    def fit(self, ydata, weights=None, keep=None, **kwargs):
         """
         Return model parameters fitted to the data.
 
@@ -205,22 +200,19 @@ class IterativeFitter( BaseFitter ):
         ConvergenceError if it stops when the tolerance has not yet been reached.
 
         """
-        raise ConvergenceError( "IterativeFitter is a base class, not suitable itself to perform fits." )
+        raise ConvergenceError(
+            "IterativeFitter is a base class, not suitable itself to perform fits.")
 
-    def report( self, verbose, param, chi, more=None, force=False ) :
+    def report(self, verbose, param, chi, more=None, force=False):
         """
         Report on intermediate results.
         """
 
-        if verbose > 1 and ( self.iter % 100 == 0 or force ) :
-            mr = "" if more is None else fmt( more, format='   %6.1f ' )
+        if verbose > 1 and (self.iter % 100 == 0 or force):
+            mr = "" if more is None else fmt(more, format='   %6.1f ')
             mx = 5 if verbose < 4 else None if verbose == 4 else verbose
-            print( fmt( self.iter, format='%6d' ), mr, fmt( chi, format="%8.1f " ),
-                   fmt( param, max=mx ) )
+            print(fmt(self.iter, format='%6d'), mr, fmt(chi, format="%8.1f "),
+                  fmt(param, max=mx))
 
-
-
-    def __str__( self ):
+    def __str__(self):
         return "IterativeFitter"
-
-

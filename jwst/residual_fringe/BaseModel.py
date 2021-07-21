@@ -5,8 +5,8 @@ import warnings
 from . import Tools
 from .Tools import setAttribute as setatt
 
-from .Prior import Prior
-from .UniformPrior import UniformPrior
+#from .Prior import Prior
+#from .UniformPrior import UniformPrior
 
 __author__ = "Do Kester"
 __year__ = 2020

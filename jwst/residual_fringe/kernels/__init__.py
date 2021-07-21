@@ -16,16 +16,3 @@
 
 
 from .Biweight import Biweight
-from .CosSquare import CosSquare
-from .Cosine import Cosine
-from .Gauss import Gauss
-from .Huber import Huber
-from .Kernel import Kernel
-from .Lorentz import Lorentz
-from .Parabola import Parabola
-from .Sinc import Sinc
-from .Triangle import Triangle
-from .Tricube import Tricube
-from .Triweight import Triweight
-from .Uniform import Uniform
-

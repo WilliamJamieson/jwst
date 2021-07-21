@@ -5,10 +5,9 @@ import matplotlib.pyplot as plt
 from astropy.table import Table
 
 from .ImageAssistant import ImageAssistant
-from .MonteCarlo import MonteCarlo
 from .ConvergenceError import ConvergenceError
 from . import Tools
-from . import Plotter
+#from . import Plotter
 from .Formatter import formatter as fmt
 
 __author__ = "Do Kester"
@@ -38,7 +37,8 @@ __status__ = "Perpetual Beta"
 #  *    2003 - 2014 Do Kester, SRON (JAVA code)
 #  *    2016 - 2020 Do Kester
 
-class BaseFitter( object ):
+
+class BaseFitter(object):
     """
     Base class for all Fitters.
 
@@ -137,7 +137,7 @@ class BaseFitter( object ):
     """
 
     #  *****CONSTRUCTORS********************************************************
-    def __init__( self, xdata, model, map=False, keep=None, fixedScale=None ):
+    def __init__(self, xdata, model, map=False, keep=None, fixedScale=None):
         """
         Create a new Fitter, providing inputs and model.
 
@@ -173,36 +173,36 @@ class BaseFitter( object ):
 
         """
         if model != model._head:
-            raise ValueError( "Model is not the head of a compound model chain" )
+            raise ValueError("Model is not the head of a compound model chain")
 
-        if map :
+        if map:
             self.imageAssistant = ImageAssistant()
-            self.xdata = self.imageAssistant.getIndices( xdata )
-        else :
+            self.xdata = self.imageAssistant.getIndices(xdata)
+        else:
             self.imageAssistant = None
-            self.xdata = numpy.asarray( xdata )
+            self.xdata = numpy.asarray(xdata)
 
-        if isinstance( xdata, Table ) :
-            ndim = len( xdata.columns )
-        else :
-            if numpy.any( numpy.isnan( xdata ) ) :
-                raise ValueError( "NaNs in xdata array" )
+        if isinstance(xdata, Table):
+            ndim = len(xdata.columns)
+        else:
+            if numpy.any(numpy.isnan(xdata)):
+                raise ValueError("NaNs in xdata array")
 
             ndim = 1 if self.xdata.ndim <= 1 else self.xdata.shape[1]
 
-        ninp = Tools.length( xdata )
+        ninp = Tools.length(xdata)
         self.nxdata = ninp
         self.ndim = ndim
         self.model = model
         self.keep = keep
-        self.fitIndex = self.keepFixed( keep )
+        self.fitIndex = self.keepFixed(keep)
         self.fixedScale = fixedScale
 
         if self.ndim != model.ndim:
-            raise ValueError( "Model (%d) and xdata (%d) must be of the same dimensionality."
-                                % (model.ndim, self.ndim) )
+            raise ValueError("Model (%d) and xdata (%d) must be of the same dimensionality."
+                             % (model.ndim, self.ndim))
 
-    def setMinimumScale( self, scale=0 ) :
+    def setMinimumScale(self, scale=0):
         """
         Introduce a minimum in scale calculation and consequently in chisq.
             chi^2 >= sumwgt * scale^2
@@ -214,8 +214,7 @@ class BaseFitter( object ):
         """
         self.minimumScale = scale
 
-
-    def fitprolog( self, ydata, weights=None, keep=None ) :
+    def fitprolog(self, ydata, weights=None, keep=None):
         """
         Prolog for all Fitters.
 
@@ -237,39 +236,39 @@ class BaseFitter( object ):
             Indices of the parameters that need fitting
 
         """
-        self.checkNan( ydata, weights=weights )
+        self.checkNan(ydata, weights=weights)
 
-        if self.imageAssistant is not None :
-            ydata = self.imageAssistant.getydata( ydata )
-            if weights is not None :
-                weights = self.imageAssistant.getydata( weights )
-        else :
-            ydata = numpy.asarray( ydata )
-            if weights is not None :
-                weights = numpy.asarray( weights )
+        if self.imageAssistant is not None:
+            ydata = self.imageAssistant.getydata(ydata)
+            if weights is not None:
+                weights = self.imageAssistant.getydata(weights)
+        else:
+            ydata = numpy.asarray(ydata)
+            if weights is not None:
+                weights = numpy.asarray(weights)
 
         self.weights = weights
 
-        if keep is not None :
-            return ( self.keepFixed( keep ), ydata, weights )
+        if keep is not None:
+            return (self.keepFixed(keep), ydata, weights)
 
-        if self.fitIndex is None :
+        if self.fitIndex is None:
             self.npfit = self.model.npchain
-            return ( numpy.arange( self.model.npchain, dtype=int ), ydata, weights )
+            return (numpy.arange(self.model.npchain, dtype=int), ydata, weights)
 
-        self.npfit = len( self.fitIndex )
-        return ( self.fitIndex, ydata, weights )
+        self.npfit = len(self.fitIndex)
+        return (self.fitIndex, ydata, weights)
 
-    def fitpostscript( self, ydata, plot=False ) :
+    def fitpostscript(self, ydata, plot=False):
         """
         Produce a plot of the results.
         """
-        if plot :
-            self.plotResult( xdata=self.xdata, ydata=ydata, model=self.model,
-                    residuals=True, confidence=False, show=True )
+        if plot:
+            self.plotResult(xdata=self.xdata, ydata=ydata, model=self.model,
+                            residuals=True, confidence=False, show=True)
 
 # *****KEEP**************************************************************
-    def keepFixed( self, keep=None ) :
+    def keepFixed(self, keep=None):
         """
         Keeps parameters fixed at the provided values.
 
@@ -288,18 +287,19 @@ class BaseFitter( object ):
         fitIndex : list of int (or None)
             list of parameter indices to be kept
         """
-        if keep is None :
+        if keep is None:
             self.npfit = self.model.npchain
             return None
-        else :
-#            print( "Keep  ", keep )
-            self.npfit = len( keep )
-            fitIndex = numpy.arange( self.model.npchain )      # start from scratch
-            fitIndex = numpy.setxor1d( fitIndex, list( keep.keys() ) )
-            self.model.parameters[list(keep.keys())] = list( keep.values() )
+        else:
+            #            print( "Keep  ", keep )
+            self.npfit = len(keep)
+            # start from scratch
+            fitIndex = numpy.arange(self.model.npchain)
+            fitIndex = numpy.setxor1d(fitIndex, list(keep.keys()))
+            self.model.parameters[list(keep.keys())] = list(keep.values())
             return fitIndex
 
-    def insertParameters( self, fitpar, index=None, into=None ) :
+    def insertParameters(self, fitpar, index=None, into=None):
         """
         Insert fitparameters into the parameters when fitIndex is present.
 
@@ -313,19 +313,19 @@ class BaseFitter( object ):
             array into which the fitpar need to be inserted.
 
         """
-        if index is None :
+        if index is None:
             index = self.fitIndex
 
-        fitpar = numpy.array( fitpar, dtype=float, copy=False, ndmin=1 )
+        fitpar = numpy.array(fitpar, dtype=float, copy=False, ndmin=1)
 
-        if index is None or len( fitpar ) == len( self.model.parameters ) :
+        if index is None or len(fitpar) == len(self.model.parameters):
             return fitpar
         pars = self.model.parameters.copy() if into is None else into
         pars[index] = fitpar
         return pars
 
     #  *****FIT*****************************************************************
-    def modelFit( self, ydata, weights=None, keep=None ):
+    def modelFit(self, ydata, weights=None, keep=None):
         """
         Return model fitted to the data.
 
@@ -341,11 +341,10 @@ class BaseFitter( object ):
             They are only used in this call of fit.
 
         """
-        self.model.parameters = self.fit( ydata, weights=weights, keep=keep )
+        self.model.parameters = self.fit(ydata, weights=weights, keep=keep)
         return self.yfit
 
-
-    def limitsFit( self, fitmethod, ydata, weights=None, keep=None ) :
+    def limitsFit(self, fitmethod, ydata, weights=None, keep=None):
         """
         Fit the data to the model.
         When a parameter(s) transgresses the limits, it set and fixed at that limit
@@ -375,8 +374,8 @@ class BaseFitter( object ):
         Warning when parameters have been reset at the limits.
 
         """
-        pars = fitmethod( ydata, weights=weights )          # perform the fit
-        if self.model.priors is None :                           # no priors -> no limits
+        pars = fitmethod(ydata, weights=weights)          # perform the fit
+        if self.model.priors is None:                           # no priors -> no limits
             return pars
 
         sfix = self.keep                                    # save original fixed setting
@@ -384,36 +383,37 @@ class BaseFitter( object ):
         npchain = self.model.npchain
         params = self.model.parameters
         index = self.fitIndex
-        if index is None :
-            index = range( npchain )
+        if index is None:
+            index = range(npchain)
             fix = []
-        else :
+        else:
             fix = sfix.copy()
 
         ool = 0
-        for k in index :                                    # check limits for params
-            if params[k] < self.model.getPrior( k ).lowLimit :
-                fix = fix + [k]                             # add to original fixed
-                params[k] = self.model.getPrior( k ).lowLimit
-                ool += 1
-            elif params[k] > self.model.getPrior( k ).highLimit :
+        for k in index:                                    # check limits for params
+            if params[k] < self.model.getPrior(k).lowLimit:
+                # add to original fixed
                 fix = fix + [k]
-                params[k] = self.model.getPrior( k ).highLimit
+                params[k] = self.model.getPrior(k).lowLimit
+                ool += 1
+            elif params[k] > self.model.getPrior(k).highLimit:
+                fix = fix + [k]
+                params[k] = self.model.getPrior(k).highLimit
                 ool += 1
 
-        if ool > 0 :                                        # some transgressions
-            self.keepFixed( fix )                           # fix them
-            pars = fitmethod( ydata, weights=weights )      # run fit again
-            self.keepFixed( sfix )                          # reset original fitIndex
-            if sfix is not None :                           # select parameters
+        if ool > 0:                                        # some transgressions
+            self.keepFixed(fix)                           # fix them
+            pars = fitmethod(ydata, weights=weights)      # run fit again
+            # reset original fitIndex
+            self.keepFixed(sfix)
+            if sfix is not None:                           # select parameters
                 pars = [self.model.parameters[k] for k in self.fitIndex]
-                fix = list( set( fix ) - set( sfix ) )
-            warnings.warn( "Parameters ", fix, " exceeded limits." )
+                fix = list(set(fix) - set(sfix))
+            warnings.warn("Parameters ", fix, " exceeded limits.")
 
         return pars                                         # return parameters
 
-
-    def fit( self, ydata, weights=None, keep=None ) :
+    def fit(self, ydata, weights=None, keep=None):
         """
         Return model parameters fitted to the data.
 
@@ -433,9 +433,10 @@ class BaseFitter( object ):
         NotImplementedError. BaseFitter cannot perform fits by itself.
 
         """
-        raise NotImplementedError( "BaseFitter is a base class, not suitable itself to perform fits." )
+        raise NotImplementedError(
+            "BaseFitter is a base class, not suitable itself to perform fits.")
 
-    def checkNan( self, ydata, weights=None ):
+    def checkNan(self, ydata, weights=None):
         """
         Check there are no Nans or Infs in ydata or weights.
 
@@ -450,12 +451,12 @@ class BaseFitter( object ):
         ------
         ValueError.
         """
-        if not numpy.all( numpy.isfinite( ydata ) ) :
-            raise ValueError( "Fitter: NaNs or Infs in ydata" )
-        if  weights is not None and not numpy.all( numpy.isfinite( weights ) ) :
-            raise ValueError( "Fitter: NaNs or Infs in weights" )
+        if not numpy.all(numpy.isfinite(ydata)):
+            raise ValueError("Fitter: NaNs or Infs in ydata")
+        if weights is not None and not numpy.all(numpy.isfinite(weights)):
+            raise ValueError("Fitter: NaNs or Infs in weights")
 
-    def __getattr__( self, name ) :
+    def __getattr__(self, name):
         """
         Return value belonging to attribute with name.
 
@@ -464,42 +465,42 @@ class BaseFitter( object ):
         name : string
             name of the attribute
         """
-        if name in ['logOccam', 'logLikelihood', 'chisq'] :
-            raise AttributeError( str( self ) + ": " + name + " is not yet available." )
-        elif name == 'parameters' :
+        if name in ['logOccam', 'logLikelihood', 'chisq']:
+            raise AttributeError(str(self) + ": " + name +
+                                 " is not yet available.")
+        elif name == 'parameters':
             return self.model.parameters
-        elif name == 'weights' :            ## not present return None
+        elif name == 'weights':  # not present return None
             return None
-        elif name == 'sumwgt' :             ## not present return nxdata
+        elif name == 'sumwgt':  # not present return nxdata
             return self.nxdata
-        elif name == 'yfit' :
-            yfit = self.model.result( self.xdata )
-            return yfit if self.imageAssistant is None else self.imageAssistant.resizeData( yfit )
-        elif name == 'design' :
+        elif name == 'yfit':
+            yfit = self.model.result(self.xdata)
+            return yfit if self.imageAssistant is None else self.imageAssistant.resizeData(yfit)
+        elif name == 'design':
             return self.getDesign()
-        elif name == 'hessian' :
+        elif name == 'hessian':
             return self.getHessian()
-        elif name == 'covariance' :
+        elif name == 'covariance':
             return self.getCovarianceMatrix()
-        elif name == 'stdevs' or name == 'standardDeviations' :
+        elif name == 'stdevs' or name == 'standardDeviations':
             return self.getStandardDeviations()
-        elif name == 'scale' :
+        elif name == 'scale':
             return self.getScale()
-        elif name == "stdevScale" :
-            return self.scale / math.sqrt( 2 * self.sumwgt )
+        elif name == "stdevScale":
+            return self.scale / math.sqrt(2 * self.sumwgt)
 #            return self.scale / math.sqrt( 2 * self.nxdata )
-        elif name == 'evidence' :
+        elif name == 'evidence':
             return self.getEvidence()
-        elif name == 'logZ' :
+        elif name == 'logZ':
             return self.getLogZ()
-        else :
-            raise AttributeError( str( self ) + ": Unknown attribute " + name )
+        else:
+            raise AttributeError(str(self) + ": Unknown attribute " + name)
 
         return None
 
-
     #  *****VECTOR**************************************************************
-    def getVector( self, ydata, index=None ):
+    def getVector(self, ydata, index=None):
         """
         Return the &beta;-vector.
 
@@ -514,14 +515,14 @@ class BaseFitter( object ):
             index of parameters to be fixed
 
         """
-        if self.model.isNullModel() :
-            return numpy.asarray( 0 )
-        design = self.getDesign( index=index )
+        if self.model.isNullModel():
+            return numpy.asarray(0)
+        design = self.getDesign(index=index)
 
-        return numpy.inner( design.transpose(), ydata )
+        return numpy.inner(design.transpose(), ydata)
 
     #  *****HESSIAN**************************************************************
-    def getHessian( self, params=None, weights=None, index=None ):
+    def getHessian(self, params=None, weights=None, index=None):
         """
         Calculates the hessian matrix for a given set of model parameters.
 
@@ -537,34 +538,36 @@ class BaseFitter( object ):
             index of parameters to be fixed
 
         """
-        if params is None : params = self.model.parameters
-        if weights is None : weights = self.weights
+        if params is None:
+            params = self.model.parameters
+        if weights is None:
+            weights = self.weights
 
-        self.sumwgt = self.nxdata if weights is None else numpy.sum( weights )
+        self.sumwgt = self.nxdata if weights is None else numpy.sum(weights)
 
-        if self.model.isNullModel() :
+        if self.model.isNullModel():
             return
 
-        design = self.getDesign( xdata=self.xdata, params=params, index=index )
+        design = self.getDesign(xdata=self.xdata, params=params, index=index)
 
-        if hasattr( self, "normweight" ) :
-            if weights is None :
-                weights = numpy.ones( self.nxdata, dtype=float )
-            weights = numpy.append( weights, self.normweight )
+        if hasattr(self, "normweight"):
+            if weights is None:
+                weights = numpy.ones(self.nxdata, dtype=float)
+            weights = numpy.append(weights, self.normweight)
 
         design = design.transpose()
 
-        if weights is not None :
-            self.hessian = numpy.inner( design, design * weights )
-        else :
-            self.hessian = numpy.inner( design, design )
+        if weights is not None:
+            self.hessian = numpy.inner(design, design * weights)
+        else:
+            self.hessian = numpy.inner(design, design)
 
         return self.hessian
 
 #      * TBD Condition number see Wikipedia: Condition Number and Matrix Norm
 
     #  *************************************************************************
-    def getInverseHessian( self, params=None, weights=None, index=None ):
+    def getInverseHessian(self, params=None, weights=None, index=None):
         """
         Return the inverse of the Hessian Matrix, H.
 
@@ -578,11 +581,11 @@ class BaseFitter( object ):
             index of parameters to be fixed
 
         """
-        hes = self.getHessian( params, weights, index )
-        inh = numpy.linalg.inv( hes )
+        hes = self.getHessian(params, weights, index)
+        inh = numpy.linalg.inv(hes)
         return inh
 
-    def getCovarianceMatrix( self ):
+    def getCovarianceMatrix(self):
         """
         Returns the inverse hessian matrix over the fitted parameters,
                 multiplied by the variance.
@@ -590,11 +593,11 @@ class BaseFitter( object ):
         Stdevs are found from this as np.sqrt( np.diag( covarianceMatrix ) )
 
         """
-        cov =  self.getInverseHessian( index=self.fitIndex ) * self.makeVariance()
+        cov = self.getInverseHessian(index=self.fitIndex) * self.makeVariance()
         return cov
 
     #  *************************************************************************
-    def makeVariance( self, scale=None ):
+    def makeVariance(self, scale=None):
         """
         Return the (calculated) variance of the remaining noise. I.e.
             var = chisq / dof
@@ -607,16 +610,16 @@ class BaseFitter( object ):
         scale : float
             noise scale to be used
         """
-        if scale is not None :
+        if scale is not None:
             return scale * scale
 
         scale = self.getScale()
         var = scale * scale
-        if hasattr( self, "minimumScale" ) :       # add minimum to scale when requested
+        if hasattr(self, "minimumScale"):       # add minimum to scale when requested
             var += self.minimumScale * self.minimumScale
         return var
 
-    def normalize( self, normdfdp, normdata, weight=1.0 ) :
+    def normalize(self, normdfdp, normdata, weight=1.0):
         """
         If for some reason the model is degenerate, e.g when two parameters measure
         essentially the same thing, This method can disambiguate these parameters.
@@ -632,24 +635,23 @@ class BaseFitter( object ):
         weight : float
             weight of this measurement
         """
-        normdfdp = numpy.asarray( normdfdp, dtype=float )
-        if normdfdp.ndim == 1 :
-            normdfdp = normdfdp.reshape( 1, len( normdfdp ) )
-            normdata = numpy.asarray( [normdata], dtype=float )
-            weight   = numpy.asarray( [weight], dtype=float )
+        normdfdp = numpy.asarray(normdfdp, dtype=float)
+        if normdfdp.ndim == 1:
+            normdfdp = normdfdp.reshape(1, len(normdfdp))
+            normdata = numpy.asarray([normdata], dtype=float)
+            weight = numpy.asarray([weight], dtype=float)
 
-        if not hasattr( self, "normdfdp" ) :
+        if not hasattr(self, "normdfdp"):
             self.normdfdp = normdfdp
             self.normdata = normdata
             self.normweight = weight
-        else :
-            self.normdfdp = numpy.append( self.normdfdp, normdfdp, axis=0 )
-            self.normdata = numpy.append( self.normdata, normdata )
-            self.normweight = numpy.append( self.normweight, weight )
-
+        else:
+            self.normdfdp = numpy.append(self.normdfdp, normdfdp, axis=0)
+            self.normdata = numpy.append(self.normdata, normdata)
+            self.normweight = numpy.append(self.normweight, weight)
 
     #  *****DESIGN**************************************************************
-    def getDesign( self, params=None, xdata=None, index=None ):
+    def getDesign(self, params=None, xdata=None, index=None):
         """
         Return the design matrix, D.
         The design matrix is also known as the Jacobian Matrix.
@@ -664,20 +666,22 @@ class BaseFitter( object ):
             index of parameters to be fixed
 
         """
-        if params is None : params = self.model.parameters
-        if xdata is None :  xdata = self.xdata
+        if params is None:
+            params = self.model.parameters
+        if xdata is None:
+            xdata = self.xdata
 
-        design = self.model.partial( xdata, params )
-        if hasattr( self, "normdfdp" ) :
-            design = numpy.append( design, self.normdfdp, axis=0 )
+        design = self.model.partial(xdata, params)
+        if hasattr(self, "normdfdp"):
+            design = numpy.append(design, self.normdfdp, axis=0)
 
-        if index is not None :
-            design = design[:,index]
+        if index is not None:
+            design = design[:, index]
 
         return design
 
     #  *****CHI-SQUARED*********************************************************
-    def chiSquared( self, ydata, params=None, weights=None ):
+    def chiSquared(self, ydata, params=None, weights=None):
         """
         Calculates Chi-Squared for data and weights.
 
@@ -697,20 +701,20 @@ class BaseFitter( object ):
         ValueError when chisq <= 0.
 
         """
-        res2 = numpy.square( ydata - self.model.result( self.xdata, params ) )
+        res2 = numpy.square(ydata - self.model.result(self.xdata, params))
         if weights is not None:
             res2 *= weights
-            self.sumwgt = numpy.sum( weights )
+            self.sumwgt = numpy.sum(weights)
         else:
             self.sumwgt = self.nxdata
-        self.chisq = numpy.sum( res2 )
-        if self.chisq <= 0 :
-            raise ValueError( str( self ) + ": chisq <= 0" )
+        self.chisq = numpy.sum(res2)
+        if self.chisq <= 0:
+            raise ValueError(str(self) + ": chisq <= 0")
 
         return self.chisq
 
     #  *****STANDARD DEVIATION**************************************************
-    def getStandardDeviations( self ):
+    def getStandardDeviations(self):
         """
         Calculates of standard deviations pertaining to the parameters.
 
@@ -727,46 +731,18 @@ class BaseFitter( object ):
         """
         cov = self.covariance
 
-        stdevs = numpy.sqrt( cov.diagonal() )
-        if self.keep is None :
+        stdevs = numpy.sqrt(cov.diagonal())
+        if self.keep is None:
             self.model.stdevs = stdevs
-        else :
-            intostd = numpy.zeros( self.model.npchain, dtype=float )
-            self.model.stdevs = self.insertParameters( stdevs, into=intostd )
+        else:
+            intostd = numpy.zeros(self.model.npchain, dtype=float)
+            self.model.stdevs = self.insertParameters(stdevs, into=intostd)
 
         return self.model.stdevs
 
-    #  *****MONTE CARLO ERROR***************************************************
-    def monteCarloError( self, xdata=None, monteCarlo=None):
-        """
-        Calculates &sigma;-confidence regions on the model given some inputs.
-
-        From the full covariance matrix (inverse of the Hessian) random
-        samples are drawn, which are added to the parameters. With this new
-        set of parameters the model is calculated. This procedure is done
-        by default, 25 times.
-        The standard deviation of the models is returned as the error bar.
-
-        The calculation of the confidence region is delegated to the class
-        MonteCarlo. For tweaking of that class can be done outside BaseFitter.
-
-        Parameters
-        ----------
-        xdata : array_like
-            input data over which to calculate the error bars.
-        monteCarlo : MonteCarlo
-            a ready-made MonteCarlo class.
-
-        """
-        if xdata is None : xdata = self.xdata
-        if monteCarlo is None :
-            monteCarlo = MonteCarlo( xdata, self.model, self.covariance,
-                                          index=self.fitIndex )
-
-        return monteCarlo.getError( xdata )
-
     #  *************************************************************************
-    def getScale( self ):
+
+    def getScale(self):
         """
         Return
         ------
@@ -780,13 +756,13 @@ class BaseFitter( object ):
         """
 #        dof = self.nxdata - self.npfit
         dof = self.sumwgt - self.npfit
-        if dof <= 0 :
-            raise RuntimeError( "More parameters than (weighted) data points" )
+        if dof <= 0:
+            raise RuntimeError("More parameters than (weighted) data points")
 
-        return math.sqrt( self.chisq / dof )
+        return math.sqrt(self.chisq / dof)
 
     #  *****EVIDENCE************************************************************
-    def getEvidence( self, limits=None, noiseLimits=None ):
+    def getEvidence(self, limits=None, noiseLimits=None):
         """
         Calculation of the evidence, log10( Z ), for the model given the data.
 
@@ -810,9 +786,9 @@ class BaseFitter( object ):
         ValueError when no Prior is available
 
         """
-        return self.getLogZ( limits, noiseLimits ) / math.log( 10.0 )
+        return self.getLogZ(limits, noiseLimits) / math.log(10.0)
 
-    def getLogLikelihood( self, autoscale=False, var=1.0 ) :
+    def getLogLikelihood(self, autoscale=False, var=1.0):
         """
         Return the log likelihood.
 
@@ -825,10 +801,10 @@ class BaseFitter( object ):
         var : float
             variance
         """
-        return -0.5 * ( self.sumwgt * math.log( 2 * math.pi * var ) +
-                        self.chisq / var )
+        return -0.5 * (self.sumwgt * math.log(2 * math.pi * var) +
+                       self.chisq / var)
 
-    def getLogZ( self, limits=None, noiseLimits=None ):
+    def getLogZ(self, limits=None, noiseLimits=None):
         """
         Calculation of the evidence, log( Z ), for the model given the data.
 
@@ -856,69 +832,71 @@ class BaseFitter( object ):
         """
 #        dof = self.nxdata - self.npfit
         dof = self.sumwgt - self.npfit
-        if dof <= 0 :
-            raise RuntimeError( "More parameters than (weighted) data points" )
+        if dof <= 0:
+            raise RuntimeError("More parameters than (weighted) data points")
 
-        if noiseLimits is not None :
-            scalerange = math.log( noiseLimits[1] ) - math.log( noiseLimits[0] )
+        if noiseLimits is not None:
+            scalerange = math.log(noiseLimits[1]) - math.log(noiseLimits[0])
             autoScale = True
-            s2 = self.makeVariance( )
-            self.logOccam = 0.5 * math.log( math.pi * dof ) - scalerange
-        else :
+            s2 = self.makeVariance()
+            self.logOccam = 0.5 * math.log(math.pi * dof) - scalerange
+        else:
             autoScale = False
             scale = 1.0 if self.fixedScale is None else self.fixedScale
             s2 = scale * scale
             self.logOccam = 0.0
 
         # add integral over the scale prior, if scale is to be fitted.
-        spr = math.log( scalerange ) if autoScale else 0.0
+        spr = math.log(scalerange) if autoScale else 0.0
 
         # obtain the loglikelihood.
-        self.logLikelihood = self.getLogLikelihood( autoscale=autoScale, var=s2 )
+        self.logLikelihood = self.getLogLikelihood(autoscale=autoScale, var=s2)
 
-        if self.npfit == 0 :
+        if self.npfit == 0:
             return self.logLikelihood + self.logOccam
 
         priors = self.model.priors
-        if limits is not None :
-            prirange = Tools.toArray( limits[1] ) - Tools.toArray( limits[0] )
-        elif self.model.hasLimits() :
-            prirange = [p.getIntegral() for p in priors]        # convert to list
-        elif self.model.npchain > 0 :
-            raise ValueError( "No limits provided on the parameters. Cannot calculate evidence." )
+        if limits is not None:
+            prirange = Tools.toArray(limits[1]) - Tools.toArray(limits[0])
+        elif self.model.hasLimits():
+            prirange = [p.getIntegral()
+                        for p in priors]        # convert to list
+        elif self.model.npchain > 0:
+            raise ValueError(
+                "No limits provided on the parameters. Cannot calculate evidence.")
 
-        priorlength = Tools.length( prirange )                         # maybe less than npar
-        prirange = numpy.log( numpy.asarray( prirange ) )
+        # maybe less than npar
+        priorlength = Tools.length(prirange)
+        prirange = numpy.log(numpy.asarray(prirange))
 
-        if priorlength == 1 :
+        if priorlength == 1:
             spr += prirange[0]
-        elif limits is None and self.fitIndex is not None :
+        elif limits is None and self.fitIndex is not None:
             fi = self.fitIndex
-            q = numpy.where( fi < priorlength )
+            q = numpy.where(fi < priorlength)
             fq = fi[q]
-            priorlength = len( fq )
-            spr += numpy.sum( prirange[fq] )
-        else :
-            spr += numpy.sum( prirange )
+            priorlength = len(fq)
+            spr += numpy.sum(prirange[fq])
+        else:
+            spr += numpy.sum(prirange)
 
-        if priorlength < self.npfit :                          # add enough times the last one
-            spr += ( self.npfit - priorlength ) * prirange[-1]
+        if priorlength < self.npfit:                          # add enough times the last one
+            spr += (self.npfit - priorlength) * prirange[-1]
 
-        lidet = math.log( numpy.linalg.det( self.hessian ) )
+        lidet = math.log(numpy.linalg.det(self.hessian))
 
         # implementing eq 18 (Kester 2002) term by term
-        self.logOccam += -spr + 0.5 * ( self.npfit *
-                         math.log( 2 * math.pi * s2 ) - lidet )
+        self.logOccam += -spr + 0.5 * (self.npfit *
+                                       math.log(2 * math.pi * s2) - lidet)
 
         return self.logLikelihood + self.logOccam
 
-    def __str__( self ):
+    def __str__(self):
         """ Return name of the fitter.  """
         return "BaseFitter"
 
-
-    def plotResult( self, xdata=None, ydata=None, model=None, residuals=True,
-                    confidence=False, show=True ) :
+    def plotResult(self, xdata=None, ydata=None, model=None, residuals=True,
+                   confidence=False, show=True):
         """
         Plot the results of the fit.
 
@@ -937,13 +915,11 @@ class BaseFitter( object ):
         show : bool
             display the plot.
         """
-        if xdata is None :
+        if xdata is None:
             xdata = self.xdata
-        if model is None :
+        if model is None:
             model = self.model
         fitter = self if confidence else None
 
-        Plotter.plotFit( xdata, data=ydata, model=model, show=show,
-                fitter=fitter, residuals=residuals )
-
-
+        # Plotter.plotFit( xdata, data=ydata, model=model, show=show,
+        #         fitter=fitter, residuals=residuals )
