@@ -394,7 +394,7 @@ class ResidualFringeCorrection():
                                         col] = bgindx
                     self.num_corrected += 1
 
-                except utils.TooFewFringesException as e:
+                except (utils.TooFewFringesException, RuntimeError) as e:
                     print(type(e))
                     log.warning(
                         " Skipping col={} {} ".format(col, ss))
