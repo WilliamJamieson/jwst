@@ -21,12 +21,12 @@ Examples
         (90.70377653, -66.59540224)>, delta_v1=<Angle 0.13712727 deg>, delta_refpoint=<Angle 0.04044315 deg>)
 
 >>> calc_deltas([im])
-    <Table length=1>
-      exposure                  target                ...    delta_refpoint
-                               deg,deg                ...
-       object                   object                ...       float64
-    ------------ ------------------------------------ ... -------------------
-    <ImageModel> 90.75541666666666,-66.56055555555554 ... 0.04044314761499765
+<Table length=1>
+  exposure                  target                ...    delta_refpoint
+                           deg,deg                ...
+   object                  SkyCoord               ...       float64
+------------ ------------------------------------ ... -------------------
+<ImageModel> 90.75541666666666,-66.56055555555554 ... 0.04044314761499765
 """
 from collections import defaultdict, namedtuple
 import logging
