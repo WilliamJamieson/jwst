@@ -1,7 +1,7 @@
 #
 #  Module for applying fringe correction
 #
-
+import asdf
 import numpy as np
 from functools import partial
 from ..stpipe import Step
@@ -17,6 +17,7 @@ import logging
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 
+gdict = {}
 
 class ResidualFringeCorrection():
 
@@ -79,6 +80,10 @@ class ResidualFringeCorrection():
         """
 
         # Check that the fringe flat has been applied
+        gdict.update({'outfile': None, 'channel': None,
+                      'slice': None, 'column': None})
+        gdict['outfile'] = open('flist.txt', 'w')
+
         if self.input_model.meta.cal_step.fringe != 'COMPLETE':
             raise ErrorNoFringeFlat("The fringe flat step has not been run on file %s",
                                     self.input_model.meta.filename)
@@ -180,6 +185,7 @@ class ResidualFringeCorrection():
         return self.model
 
     def process_channel(self, c):
+        print('doing channel = ', c, file=gdict['outfile'])
         self.num_corrected = 0
         log.info("Processing channel {}".format(c))
         (slices_in_band, xrange_channel, slice_x_ranges, all_slice_masks) = \
@@ -215,6 +221,7 @@ class ResidualFringeCorrection():
 
     def process_slice(self, n, ss, ysize, xsize, y, x, wave_map, slice_x_ranges,
                       all_slice_masks, correction_quality):
+        print('doing slice = ', n, file=gdict['outfile'])
         log.info(
             " Processing slice {} =================================".format(ss))
         print('n = ', n)
@@ -252,12 +259,14 @@ class ResidualFringeCorrection():
                        min_nfringes, max_nfringes, pgram_res, correction_quality):
         col_data = ss_data[:, col]
         col_wmap = ss_wmap[:, col]
-
+        stop_here = False
         valid = np.logical_and((col_wmap > 0), ~np.isnan(col_wmap))
         # because of the curvature of the slices there can be large regions not falling on a column
         num_good = len(np.where(valid)[0])
         # Need at least 50 pixels in column to proceed
         print('num_good = ', num_good)
+        if num_good == 1024:
+            stop_here = True
         if num_good > 50:
             test_flux = col_data[valid]
             # Transform wavelength in micron to wavenumber in cm^-1.
@@ -334,6 +343,61 @@ class ResidualFringeCorrection():
                 wpix_num = 1024
                 # the reference file is set up with 2 values for ffreq but currently one one is used. The other value
                 # is a place holder and set to a small value
+                print('c=', col, file=gdict['outfile'])
+                if stop_here:
+                    #af = asdf.AsdfFile()
+                    of = gdict['outfile']
+                    print('*************************************', file=of)
+                    print('col', col, file=of)
+                    #[print('fn', fn, file=of)
+                    #print('ff', ff, file=of)
+                    print('ffreq', ffreq, file=of)
+                    print('dffreq', dffreq, file=of)
+                    print('min_snr', min_snr, file=of)
+                    print('snr2', snr2, file=of)
+                    print('ss', ss, file=of)
+                    print('min_nfringes', min_nfringes, file=of)
+                    print('max_nfringes', max_nfringes, file=of)
+                    print('pgram_res', pgram_res, file=of)
+                    print('proc_data', proc_data, file=of)
+                    print('proc_factors', proc_factors, file=of)
+                    print('pre_contrast', pre_contrast, file=of)
+                    print('bg_fit', bg_fit, file=of)
+                    print('res_fringes', res_fringes, file=of)
+                    print('res_fringe_fit', res_fringe_fit, file=of)
+                    print('res_fringe_fit_flag', res_fringe_fit_flag, file=of)
+                    print('wpix_num', wpix_num, file=of)
+                    print('col_wnum', col_wnum, file=of)
+                    print('col_weight', col_weight, file=of)
+                    print('col_max_amp', col_max_amp, file=of)
+                    print('weights_feat', weights_feat, file=of)
+                    af = asdf.AsdfFile()
+                    tree = {
+                        'col': col,
+                        'ffreq': ffreq,
+                        'dffreq': dffreq,
+                        'min_snr': min_snr,
+                        'snr2': snr2,
+                        'ss': ss,
+                        'min_nfringes': min_nfringes,
+                        'max_nfringes': max_nfringes,
+                        'pgram_res': pgram_res,
+                        'proc_data': proc_data,
+                        'proc_factors': proc_factors,
+                        'pre_contrast': pre_contrast,
+                        'bg_fit': bg_fit,
+                        'res_fringes': res_fringes,
+                        'res_fringe_fit': res_fringe_fit,
+                        'res_fringe_fit_flag': res_fringe_fit_flag,
+                        'wpix_num': wpix_num,
+                        'col_wnum': col_wnum,
+                        'col_weight': col_weight,
+                        'col_max_amp': col_max_amp,
+                        'weights_feat': weights_feat,
+                    }
+                    af.tree = tree
+                    af.write_to('rfringe_inputs.asdf')
+
                 try:
                     for fn, ff in enumerate(ffreq):
                         # ignore place holder fringes
@@ -343,6 +407,7 @@ class ResidualFringeCorrection():
                                                     weights_feat)
                         if result:
                             opt_nfringe, peak_freq, freq_min, freq_max, bgindx = result
+
                     # define fringe sub after all fringe components corrections
                     fringe_sub = proc_data.copy()
                     rfc_factors = proc_factors.copy()

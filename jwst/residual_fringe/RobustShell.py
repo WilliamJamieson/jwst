@@ -1,3 +1,4 @@
+import asdf
 import numpy as numpy
 import inspect
 
@@ -34,7 +35,7 @@ __status__ = "Perpetual Beta"
 #  *    2017 - 2020 Do Kester
 
 
-class RobustShell( IterativeFitter ):
+class RobustShell(IterativeFitter):
     """
     RobustShell tries to make a fit more robust in the presence of outliers.
 
@@ -122,7 +123,8 @@ class RobustShell( IterativeFitter ):
     Author       Do Kester.
 
     """
-    def __init__( self, fitter, kernel=Biweight, domain=None, onesided=None, **kwargs ):
+
+    def __init__(self, fitter, kernel=Biweight, domain=None, onesided=None, **kwargs):
         """
         Create a new class, providing the fitter to be used.
 
@@ -144,15 +146,15 @@ class RobustShell( IterativeFitter ):
             "negative" : apply robust weights to negative residuals only
 
         """
-        super( RobustShell, self ).__init__( fitter.xdata, fitter.model, **kwargs )
+        super(RobustShell, self).__init__(fitter.xdata, fitter.model, **kwargs)
         self.fitter = fitter
-        self.kernelfunc = self.setKernel( kernel )
-        if domain is None :
+        self.kernelfunc = self.setKernel(kernel)
+        if domain is None:
             domain = 6.0 / self.kernel.fwhm
         self.domain = domain
-        self.onesided = self.setOneSided( onesided )
+        self.onesided = self.setOneSided(onesided)
 
-    def setKernel( self, kernel ) :
+    def setKernel(self, kernel):
         """
         Set the robust kernel to be used.
 
@@ -168,20 +170,21 @@ class RobustShell( IterativeFitter ):
         ValueError when kernel is not recognized.
 
         """
-        if inspect.isclass( kernel ) :
+        if inspect.isclass(kernel):
             kernel = kernel()
-        if isinstance( kernel, Kernel ) :
+        if isinstance(kernel, Kernel):
             self.kernel = kernel
             kernelfunc = self.kernel.result
-        elif callable( kernel ) :
+        elif callable(kernel):
             self.kernel = None
             kernelfunc = kernel
-        else :
-            raise ValueError( "Could not interpret the value for kernel: %s" % str( kernel ) )
+        else:
+            raise ValueError(
+                "Could not interpret the value for kernel: %s" % str(kernel))
 
         return kernelfunc
 
-    def setOneSided( self, onesided ) :
+    def setOneSided(self, onesided):
         """
         set self.onesided to either 0 or +1 or -1.
 
@@ -197,20 +200,20 @@ class RobustShell( IterativeFitter ):
         ValueError when onesided could not be interpreted.
 
         """
-        if onesided is None :
+        if onesided is None:
             return 0
-        elif isinstance( onesided, str ) :
-            if onesided[0] is "p" or onesided[0] is "P" :
+        elif isinstance(onesided, str):
+            if onesided[0] is "p" or onesided[0] is "P":
                 return +1
-            elif onesided[0] is "n" or onesided[0] is "N" :
+            elif onesided[0] is "n" or onesided[0] is "N":
                 return -1
-            else :
-                raise ValueError( "Unknown string for onesided: %s" % onesided )
-        else :
-            raise ValueError( "Could not interpret the value for onesided: %s" % str( onesided ) )
+            else:
+                raise ValueError("Unknown string for onesided: %s" % onesided)
+        else:
+            raise ValueError(
+                "Could not interpret the value for onesided: %s" % str(onesided))
 
-
-    def fit( self, data, weights=None, kernel=None, domain=None, onesided=None, **kwargs ) :
+    def fit(self, data, weights=None, kernel=None, domain=None, onesided=None, **kwargs):
         """
         Perform a robustification step.
 
@@ -222,67 +225,77 @@ class RobustShell( IterativeFitter ):
             keyword args to be passed to fitter.fit()
         """
 
-        kernelfunc = self.kernelfunc if kernel is None else self.setKernel( kernel )
-        onesided = self.onesided if onesided is None else self.setOneSided( onesided )
+        kernelfunc = self.kernelfunc if kernel is None else self.setKernel(
+            kernel)
+        onesided = self.onesided if onesided is None else self.setOneSided(
+            onesided)
         domain = self.domain if domain is None else domain
 
         self.iter = 0
-
-        param = self.fitter.fit( data, weights, **kwargs )
+        #param = self.fitter.fit(data, **kwargs)
+        param = self.fitter.fit(data, weights, **kwargs)
         self.npfit = self.fitter.npfit
         chi = self.fitter.chisq
+        fitval = self.fitter.model.result(self.fitter.xdata, param)
+        print('outputting first fit of spline in RobustShell')
+        af = asdf.AsdfFile()
+        af.tree = {'data': data, 'weights': self.weights,
+                   'param': param, 'fitval': fitval}
+        af.write_to('xrfspline.asdf')
+        return
 
-        while self.iter < self.maxIter :
+        while self.iter < self.maxIter:
 
-            residuals = data - self.model.result( self.xdata, param )
+            residuals = data - self.model.result(self.xdata, param)
             scale = self.fitter.scale
-            residuals /= ( scale * domain )
-            robwgt = kernelfunc( residuals )
-            robwgt = self.getOneSidedWeights( robwgt, residuals, onesided )
+            residuals /= (scale * domain)
+            robwgt = kernelfunc(residuals)
+            robwgt = self.getOneSidedWeights(robwgt, residuals, onesided)
 
             self.weights = robwgt
-            if weights is not None :
+            if weights is not None:
                 self.weights *= weights
-            param = self.fitter.fit( data, self.weights, **kwargs )
+            param = self.fitter.fit(data, self.weights, **kwargs)
 
             trychi = self.fitter.chisq
             tol = self.tolerance if trychi < 1 else self.tolerance * trychi
 
-            if abs( chi - trychi ) < tol :
-                self.report( self.verbose, param, trychi, more=scale, force=True )
+            if abs(chi - trychi) < tol:
+                self.report(self.verbose, param, trychi,
+                            more=scale, force=True)
                 break
 
-            self.report( self.verbose, param, trychi, more=scale, force=(self.verbose>=3) )
+            self.report(self.verbose, param, trychi,
+                        more=scale, force=(self.verbose >= 3))
             chi = trychi
             self.iter += 1
-
+            break
         self.hessian = self.fitter.getHessian()
         self.chisq = trychi
 
         return param
 
-    def getOneSidedWeights( self, wgt, res, onesided ) :
-        if onesided == 0 :
+    def getOneSidedWeights(self, wgt, res, onesided):
+        if onesided == 0:
             return wgt
-        if onesided == +1 :
-            return numpy.where( res < 0, 1.0, wgt )
-        if onesided == -1 :
-            return numpy.where( res > 0, 1.0, wgt )
+        if onesided == +1:
+            return numpy.where(res < 0, 1.0, wgt)
+        if onesided == -1:
+            return numpy.where(res > 0, 1.0, wgt)
         return wgt
 
-    def __getattr__( self, name ) :
-        return super( RobustShell, self ).__getattr__( name )
+    def __getattr__(self, name):
+        return super(RobustShell, self).__getattr__(name)
 
-    def __str__( self ):
+    def __str__(self):
         """
         Return the name and weight of the fitter.
         """
-        name = "RobustShell( " + str( self.fitter ) + " ) using a "
-        if self.onesided == 0 :
+        name = "RobustShell( " + str(self.fitter) + " ) using a "
+        if self.onesided == 0:
             return name + self.kernel.name()
-        if self.onesided == +1 :
-            return name + " +1 sided " + self.kernel.name( )
-        if self.onesided == -1 :
-            return name + " -1 sided " + self.kernel.name( )
+        if self.onesided == +1:
+            return name + " +1 sided " + self.kernel.name()
+        if self.onesided == -1:
+            return name + " -1 sided " + self.kernel.name()
         return name + self.kernel.name()
-
