@@ -484,6 +484,7 @@ def fit_1d_background_complex(flux, weights, wavenum, order=2, ffreq=None):
         af = asdf.AsdfFile()
         af.tree = {'astropyresult': bg_model_fit_points}
         af.write_to('astropy.asdf')
+        return 0, 0, 0
     else:
         log.info(" not enough weighted data, no fit performed")
         return flux.copy(), np.zeros(flux.shape[0]), None

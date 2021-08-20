@@ -468,8 +468,8 @@ def fit_1d_background_complex(flux, weights, wavenum, order=2, ffreq=None):
         af = asdf.AsdfFile()
         af.tree = {'knots': bgknots, 'wavenum_scaled': wavenum_scaled}
         af.write_to('knots.asdf')
-        bg_model = SplinesModel(bgknots[1:-1], order=order)
-        fitter = Fitter(wavenum_scaled[6:-6], bg_model)
+        bg_model = SplinesModel(bgknots, order=order)
+        fitter = Fitter(wavenum_scaled, bg_model)
     else:
         log.info(" not enough weighted data, no fit performed")
         return flux.copy(), np.zeros(flux.shape[0]), None
@@ -478,7 +478,7 @@ def fit_1d_background_complex(flux, weights, wavenum, order=2, ffreq=None):
     # in this case return the original array
     # NOTE: since iso-alpha no longer supported this shouldn't be an issue, but will leave here for now
     try:
-        ftr.fit(flux.copy()[6:-6], weights=weights.copy()[6:-6])
+        ftr.fit(flux.copy(), weights=weights.copy())
     except LinAlgError:
         return flux.copy(), np.zeros(flux.shape[0]), None
 

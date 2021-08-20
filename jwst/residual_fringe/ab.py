@@ -99,7 +99,7 @@ def remove_fringe_astropy(col, fn, ff, ffreq, dffreq, min_snr, snr2, ss,
             bg_fit, bgindx, fitter = \
                 nutils.fit_1d_background_complex(proc_data, weights_feat,
                                                  col_wnum, ffreq=ffreq[fn])
-
+            return
             # get the residual fringes as fraction of signal
             res_fringes = np.divide(proc_data, bg_fit, out=np.zeros_like(proc_data),
                                     where=bg_fit != 0)
