@@ -464,7 +464,6 @@ def fit_1d_background_complex(flux, weights, wavenum, order=2, ffreq=None):
     if nper_cor >= 5:
         bgindx = make_knots(flux.copy(), int(nknots), weights=weights.copy())
         bgknots = wavenum_scaled[bgindx].astype(float)
-        print('knots', bgknots)
         af = asdf.AsdfFile()
         af.tree = {'knots': bgknots, 'wavenum_scaled': wavenum_scaled}
         af.write_to('knots.asdf')
@@ -482,6 +481,11 @@ def fit_1d_background_complex(flux, weights, wavenum, order=2, ffreq=None):
     except LinAlgError:
         return flux.copy(), np.zeros(flux.shape[0]), None
 
+    fitval = bg_model.result(wavenum_scaled)
+    af = asdf.AsdfFile()
+    af.tree = {'fitval': fitval, 'data': flux}
+    af.write_to('xrfspline.asdf')
+
     # fit the background
     bg_fit = bg_model.result(wavenum_scaled)
     bg_fit *= np.where(weights.copy() > 1e-07, 1, 1e-08)
@@ -496,7 +500,7 @@ def fit_1d_background_complex(flux, weights, wavenum, order=2, ffreq=None):
     afr = asdf.AsdfFile()
     afr.tree = {'bg_fit': bg_fit, 'bgindx': bgindx}
     afr.write_to('fitpoints.asdf')
-    0 / 0
+
     return bg_fit, bgindx, fitter
 
 

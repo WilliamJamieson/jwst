@@ -1,5 +1,6 @@
 import asdf
 import numpy as numpy
+import numpy as np
 import inspect
 
 from .IterativeFitter import IterativeFitter
@@ -230,28 +231,31 @@ class RobustShell(IterativeFitter):
         onesided = self.onesided if onesided is None else self.setOneSided(
             onesided)
         domain = self.domain if domain is None else domain
-
         self.iter = 0
         #param = self.fitter.fit(data, **kwargs)
         param = self.fitter.fit(data, weights, **kwargs)
         self.npfit = self.fitter.npfit
         chi = self.fitter.chisq
+        print('initial chisq:', chi)
         fitval = self.fitter.model.result(self.fitter.xdata, param)
-        print('outputting first fit of spline in RobustShell')
-        af = asdf.AsdfFile()
-        af.tree = {'data': data, 'weights': self.weights,
-                   'param': param, 'fitval': fitval}
-        af.write_to('xrfspline.asdf')
-        return
+        afz = asdf.AsdfFile()
+        afz.tree = {'fitval': fitval}
+        afz.write_to('ofirstfit.asdf')
+        fitarr = np.zeros((10, 1024))
+        residarr = fitarr.copy()
+        kernelarr = fitarr.copy()
+        wtarr = fitarr.copy()
+        chiarr = np.zeros((10,))
 
         while self.iter < self.maxIter:
 
             residuals = data - self.model.result(self.xdata, param)
             scale = self.fitter.scale
+            print('scale:', scale)
             residuals /= (scale * domain)
             robwgt = kernelfunc(residuals)
+            kernelarr[self.iter] = robwgt
             robwgt = self.getOneSidedWeights(robwgt, residuals, onesided)
-
             self.weights = robwgt
             if weights is not None:
                 self.weights *= weights
@@ -259,7 +263,13 @@ class RobustShell(IterativeFitter):
 
             trychi = self.fitter.chisq
             tol = self.tolerance if trychi < 1 else self.tolerance * trychi
+            chiarr[self.iter] = trychi
+            fitarr[self.iter, :] = self.model.result(self.xdata, param)
+            wtarr[self.iter, :] = self.weights
+            residarr[self.iter, :] = residuals
 
+            print('chi diff:', chi - trychi)
+            print('tol:', tol)
             if abs(chi - trychi) < tol:
                 self.report(self.verbose, param, trychi,
                             more=scale, force=True)
@@ -269,10 +279,16 @@ class RobustShell(IterativeFitter):
                         more=scale, force=(self.verbose >= 3))
             chi = trychi
             self.iter += 1
-            break
+            print('iter: ', self.iter)
+            print('scale: ', scale)
+            print('domain:', domain)
+            print('chisq:', chi)
         self.hessian = self.fitter.getHessian()
         self.chisq = trychi
-
+        af = asdf.AsdfFile()
+        af.tree = {'chi': chiarr, 'fitval': fitarr,
+                   'resid': residarr, 'netw': wtarr, 'kernel': kernelarr}
+        af.write_to('orobust.asdf')
         return param
 
     def getOneSidedWeights(self, wgt, res, onesided):

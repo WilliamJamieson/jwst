@@ -1,3 +1,4 @@
+
 import asdf
 import numpy as np
 import math
@@ -27,6 +28,128 @@ log.setLevel(logging.DEBUG)
 
 # hard coded parameters, have been selected based on testing but can be changed
 NUM_KNOTS = 80  # number of knots for bkg model if no other info provided
+
+
+class Spline:
+    """
+    Simple wrapper around scipy LSQUnivariateSpline to give a uniform interface
+    to the RobustFitter
+    """
+
+    def __init__(self, x, y, t, w, k):
+        self.spline = LSQUnivariateSpline(x, y, t, np.sqrt(w), (None, None), k)
+        self.param_names = len(self.spline.get_coeffs()) * [None]
+
+    def __call__(self, x):
+        return self.spline(x)
+
+
+class SplineFitter:
+    """
+    This is an odd case since the fit of the spline is really done on the
+    creation of the spline model. In its use with RobustFitter, all that
+    changes between calls are the weights 
+    """
+
+    def __init__(self, modelclass, x, y, w, t, k):
+        self.t = t
+        self.k = k
+        self.modelclass = modelclass
+        self.fit(None, x, y, w)  # dummy call to initialize
+
+    def fit(self, dummy, x, y, w):
+        """
+        Note that this is unusual since the astropy fitter interface expects a model
+        as the first argument, but in this case ignores it.
+        """
+        self.model = self.modelclass(x, y, self.t, w, self.k)
+        return self.model
+
+
+class RobustFitter:
+    """
+    This is intended to provide similar functionality to the RobustShell class in the
+    BaysicFitting package. It has been stripped of all but the needed functionality to
+    reasonably duplicate the results of that package.
+
+    The code we are replicating only uses the Biweight kernel and that is hardwired
+    into this class.
+    """
+
+    def __init__(self, fitter, onesided=None, domain=None, tolerance=0.0001):
+        self.fitter = fitter
+        self.tolerance = tolerance
+        if domain is None:
+            # self.domain = 6.0 / 1.0823922
+            self.domain = 10
+        else:
+            self.domain = domain
+
+        print('RobustFitter created')
+
+    def kernelfunc(self, x):
+        """
+        Weighting function depdenent only on provided value (usualy a residual)
+        """
+        return (np.where(x**2 <= 1, 1 - x**2, 0.))**2
+
+    def fit(self, x, y, weights=None):
+        """
+        Perform iterative fit using the fitter supplied in the constructor, deweighting
+        data points that deviate too far from the fit.
+        """
+
+        nparams = len(self.fitter.model.param_names)
+        self.maxiter = 1000 * nparams
+        iter = 0
+        npoints = len(x)
+
+        fitarr = np.zeros((10, npoints))
+        residarr = fitarr.copy()
+        wtarr = fitarr.copy()
+        kernelarr = fitarr.copy()
+        chiarr = np.zeros((10,))
+
+        # Perform initial fit
+        model = self.fitter.fit(self.fitter.model, x, y, weights)
+        fitval = model(x)
+        afz = asdf.AsdfFile()
+        afz.tree = {'fitval': fitval}
+        afz.write_to('afirstfit.asdf')
+        chi = (weights * (y - fitval)**2).sum()
+        sumweights = weights.sum()
+        deg_of_freedom = sumweights - nparams
+        print(chi, sumweights, deg_of_freedom)
+        tscale = [0.08230905227607517, 0.0817939614915557,
+                  0.08178663931787974, 0.08178663931787974]
+        while iter < self.maxiter:
+            residuals = y - model(x)
+            scale = np.sqrt(chi / deg_of_freedom)
+            residuals /= (scale * self.domain)
+            net_weights = self.kernelfunc(residuals) * weights
+            kernelarr[iter] = self.kernelfunc(residuals)
+            model = self.fitter.fit(self.fitter.model, x, y, net_weights)
+            newchi = (net_weights * (y - model(x))**2).sum()
+            tol = self.tolerance if newchi < 1 else self.tolerance * newchi
+            chiarr[iter] = newchi
+            fitarr[iter, :] = model(x)
+            wtarr[iter, :] = net_weights
+            residarr[iter, :] = residuals
+
+            if abs(chi - newchi) < tol:
+                break
+            chi = newchi
+            iter += 1
+            print('scale: ', scale)
+            print('domain:', self.domain)
+            print('iter:', iter)
+            print('chisq:', chi)
+        af = asdf.AsdfFile()
+        af.tree = {'chi': chiarr, 'fitval': fitarr,
+                   'resid': residarr, 'netw': wtarr, 'kernel': kernelarr}
+        af.write_to('arobust.asdf')
+        print('just wrote arobust.asdf')
+        return model
 
 
 class TooFewFringesException(Exception):
@@ -438,7 +561,6 @@ def fit_1d_background_complex(flux, weights, wavenum, order=2, ffreq=None):
 
     # first get the weighted pixel fraction
     weighted_pix_frac = (weights > 1e-05).sum() / flux.shape[0]
-    print('yo ho ho -------------------------------')
     # define number of knots using fringe freq, want 1 knot per period
     if ffreq is not None:
         log.debug(
@@ -468,19 +590,26 @@ def fit_1d_background_complex(flux, weights, wavenum, order=2, ffreq=None):
         bgindx = make_knots(flux.copy(), int(nknots), weights=weights.copy())
         bgknots = wavenum_scaled[bgindx].astype(float)
 
+        # t = bgknots[::-1][2:-2].copy()
+        # x = wavenum_scaled[6:-6][::-1].copy()
+        # y = flux[6:-6][::-1].copy()
+        # w = np.sqrt(weights[6:-6][::-1])
         t = bgknots[::-1][2:-2].copy()
-        x = wavenum_scaled[6:-6][::-1].copy()
-        y = flux[6:-6][::-1].copy()
-        w = np.sqrt(weights[6:-6][::-1])
+        x = wavenum_scaled[::-1].copy()
+        y = flux[::-1].copy()
+        w = weights[::-1]
 
-        bg_spline = LSQUnivariateSpline(x, y, t, w=w, k=2)
+        bg_spline_fitter = SplineFitter(Spline, x, y, w, t, 2)
+        robust_fitter = RobustFitter(bg_spline_fitter)
+        bg_spline_fit = robust_fitter.fit(x, y, w)
+
         # fitter = Fitter(wavenum_scaled, bg_model)
         # modknots = np.concatenate(
         #([bgknots[-1]] * 2, bgknots[::-1].copy(), [bgknots[0]] * 2))
         # bg_model.fit_spline(wavenum_scaled[100:900], flux.copy()[100:900],
         #                     t=bgknots[1:-1:-1], k=2)
 #                          w=weights.copy()[:: -1], t=modknots, k=2)
-        bg_model_fit_points = bg_spline(wavenum_scaled)
+        bg_model_fit_points = bg_spline_fit(wavenum_scaled)
         af = asdf.AsdfFile()
         af.tree = {'astropyresult': bg_model_fit_points}
         af.write_to('astropy.asdf')
