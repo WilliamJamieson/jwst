@@ -1,5 +1,5 @@
 import asdf
-from .ab import remove_fringe, remove_fringe_astropy
+from .ab import remove_fringe, remove_fringe_scipy, remove_fringe_astropy
 
 
 def compare():
@@ -31,10 +31,14 @@ def compare():
     weights_feat = tree['weights_feat']
     wpix_num = tree['wpix_num']
 
-    result2 = remove_fringe_astropy(col, 0, ffreq[0], ffreq, dffreq, min_snr, snr2, ss,
+    result3 = remove_fringe_astropy(col, 0, ffreq[0], ffreq, dffreq, min_snr, snr2, ss,
                                     min_nfringes, max_nfringes, pgram_res, proc_data2, proc_factors2,
                                     pre_contrast, bg_fit, res_fringes, res_fringe_fit, res_fringe_fit_flag,
                                     wpix_num, col_wnum, col_weight, col_max_amp, weights_feat)
+    result2 = remove_fringe_scipy(col, 0, ffreq[0], ffreq, dffreq, min_snr, snr2, ss,
+                                  min_nfringes, max_nfringes, pgram_res, proc_data2, proc_factors2,
+                                  pre_contrast, bg_fit, res_fringes, res_fringe_fit, res_fringe_fit_flag,
+                                  wpix_num, col_wnum, col_weight, col_max_amp, weights_feat)
     result1 = remove_fringe(col, 0, ffreq[0], ffreq, dffreq, min_snr, snr2, ss,
                             min_nfringes, max_nfringes, pgram_res, proc_data1, proc_factors1,
                             pre_contrast, bg_fit, res_fringes, res_fringe_fit, res_fringe_fit_flag,

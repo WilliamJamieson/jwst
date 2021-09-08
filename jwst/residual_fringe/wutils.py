@@ -8,6 +8,7 @@ from scipy.interpolate import pchip
 # from astropy.modeling import models
 # from astropy.modeling.models import Sine1D
 from astropy.timeseries import LombScargle
+from scipy.interpolate import LSQUnivariateSpline
 
 from .SplinesModel import SplinesModel
 from .Fitter import Fitter
@@ -16,6 +17,12 @@ from .SineModel import SineModel
 from .LevenbergMarquardtFitter import LevenbergMarquardtFitter
 from .RobustShell import RobustShell
 from numpy.linalg.linalg import LinAlgError
+
+from .aspline import Spline1D
+
+from astropy.modeling.spline import NewSpline1D
+from astropy.modeling.fitting import NewLSQSplineFitter, ChiSqOutlierRejectionFitter
+
 
 import logging
 log = logging.getLogger(__name__)
@@ -435,7 +442,6 @@ def fit_1d_background_complex(flux, weights, wavenum, order=2, ffreq=None):
 
     # first get the weighted pixel fraction
     weighted_pix_frac = (weights > 1e-05).sum() / flux.shape[0]
-
     # define number of knots using fringe freq, want 1 knot per period
     if ffreq is not None:
         log.debug(
@@ -464,16 +470,31 @@ def fit_1d_background_complex(flux, weights, wavenum, order=2, ffreq=None):
     if nper_cor >= 5:
         bgindx = make_knots(flux.copy(), int(nknots), weights=weights.copy())
         bgknots = wavenum_scaled[bgindx].astype(float)
-        print(f"utils: {bgknots=}")
+
+        t = bgknots[::-1][1:-1].copy()
+        x = wavenum_scaled[::-1].copy()
+        y = flux[::-1].copy()
+        w = weights[::-1]
+
+        # Using astropy splines
+        print("Start astropy robust fit")
+        spline_model = NewSpline1D(knots=t, degree=2, bounds=[x[0], x[-1]])
+        bg_spline_fitter = NewLSQSplineFitter()
+        robust_fitter = ChiSqOutlierRejectionFitter(bg_spline_fitter)
+        bg_spline_fit = robust_fitter(spline_model, x, y, weights=w)
+        print("Finish astropy robust fit")
+
+        bg_model_fit_points = bg_spline_fit(wavenum_scaled)
+
+        print("astropy-current compare:")
         af = asdf.AsdfFile()
-        af.tree = {'knots': bgknots, 'wavenum_scaled': wavenum_scaled}
-        af.write_to('knots.asdf')
-        bg_model = SplinesModel(bgknots, order=order)
-        fitter = Fitter(wavenum_scaled, bg_model)
+        af.tree = {'astropyresult': bg_model_fit_points}
+        af.write_to('astropy.asdf')
+        return 0, 0, 0
     else:
         log.info(" not enough weighted data, no fit performed")
         return flux.copy(), np.zeros(flux.shape[0]), None
-    ftr = RobustShell(fitter, domain=10)
+    # ftr = RobustShell(fitter, domain=10)
     # sometimes the fits will fail for small segments because the model is too complex for the data,
     # in this case return the original array
     # NOTE: since iso-alpha no longer supported this shouldn't be an issue, but will leave here for now
@@ -481,11 +502,6 @@ def fit_1d_background_complex(flux, weights, wavenum, order=2, ffreq=None):
         ftr.fit(flux.copy(), weights=weights.copy())
     except LinAlgError:
         return flux.copy(), np.zeros(flux.shape[0]), None
-
-    fitval = bg_model.result(wavenum_scaled)
-    af = asdf.AsdfFile()
-    af.tree = {'fitval': fitval, 'data': flux}
-    af.write_to('xrfspline.asdf')
 
     # fit the background
     bg_fit = bg_model.result(wavenum_scaled)
@@ -498,9 +514,6 @@ def fit_1d_background_complex(flux, weights, wavenum, order=2, ffreq=None):
         del nz, z
     except ValueError:
         pass
-    afr = asdf.AsdfFile()
-    afr.tree = {'bg_fit': bg_fit, 'bgindx': bgindx}
-    afr.write_to('fitpoints.asdf')
 
     return bg_fit, bgindx, fitter
 
