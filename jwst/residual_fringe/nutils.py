@@ -49,7 +49,7 @@ class SplineFitter:
     """
     This is an odd case since the fit of the spline is really done on the
     creation of the spline model. In its use with RobustFitter, all that
-    changes between calls are the weights 
+    changes between calls are the weights
     """
 
     def __init__(self, modelclass, x, y, w, t, k):
@@ -86,8 +86,6 @@ class RobustFitter:
         else:
             self.domain = domain
 
-        print('RobustFitter created')
-
     def kernelfunc(self, x):
         """
         Weighting function depdenent only on provided value (usualy a residual)
@@ -100,17 +98,10 @@ class RobustFitter:
         data points that deviate too far from the fit.
         """
 
-        # print(f"RobustFitter fit start {self.fitter.model.param_names=}")
-        # print(f"RobustFitter fit start {self.fitter.model=}")
-
         if isinstance(self.fitter, SplineFitter):
             nparams = len(self.fitter.model.param_names) + 3
         else:
             nparams = len(self.fitter.model.c)
-
-        print(f"scipy: {nparams=}")
-        print(f"scipy length of c: {len(self.fitter.model.spline._eval_args[1])}")
-        print(f"scipy length of get_coeffs: {len(self.fitter.model.spline.get_coeffs())}")
 
         self.maxiter = 1000 * nparams
         iter = 0
@@ -124,24 +115,13 @@ class RobustFitter:
 
         # Perform initial fit
         model = self.fitter.fit(self.fitter.model, x, y, weights)
-        np.save("scipy_fitter_t_v2.npy", self.fitter.model.spline._eval_args[0])
-        np.save("scipy_fitter_c_v2.npy", self.fitter.model.spline._eval_args[1])
         fitval = model(x)
-        np.save("scipy_fitval.npy", fitval)
-        afz = asdf.AsdfFile()
-        afz.tree = {'fitval': fitval}
-        afz.write_to('afirstfit.asdf')
         chi = (weights * (y - fitval)**2).sum()
-        print(f"{chi=}")
         sumweights = weights.sum()
         deg_of_freedom = sumweights - nparams
-        print(f"{deg_of_freedom=}")
         while iter < self.maxiter:
-            print(f"STARTING: {iter=}")
             residuals = y - model(x)
             scale = np.sqrt(chi / deg_of_freedom)
-            print(f"    {scale=}")
-            print(f"    {self.domain}")
             residuals /= (scale * self.domain)
             net_weights = self.kernelfunc(residuals) * weights
             kernelarr[iter] = self.kernelfunc(residuals)
@@ -156,15 +136,7 @@ class RobustFitter:
             if abs(chi - newchi) < tol:
                 break
             chi = newchi
-            print(f"    {chi=}")
             iter += 1
-            print('iter:', iter)
-            print('chisq:', chi)
-        af = asdf.AsdfFile()
-        af.tree = {'chi': chiarr, 'fitval': fitarr,
-                   'resid': residarr, 'netw': wtarr, 'kernel': kernelarr}
-        af.write_to('arobust.asdf')
-        print('just wrote arobust.asdf')
         return model
 
 
@@ -605,39 +577,21 @@ def fit_1d_background_complex(flux, weights, wavenum, order=2, ffreq=None):
     if nper_cor >= 5:
         bgindx = make_knots(flux.copy(), int(nknots), weights=weights.copy())
         bgknots = wavenum_scaled[bgindx].astype(float)
-        print("nutils: writing knots to file")
+
+        print("Writing fit-input data to numpy file for testing")
         np.save("kgknots.npy", bgknots)
-        print(f"nutils: {bgknots=}")
-        print("nutils: writing wavenum_scaled to file")
         np.save("wavenum_scaled.npy", wavenum_scaled)
-        print("nutils: writing flux to file")
         np.save("flux.npy", flux)
-        print("nutils: writing weights to file")
         np.save("weights.npy", weights)
 
-        # t = bgknots[::-1][2:-2].copy()
-        # x = wavenum_scaled[6:-6][::-1].copy()
-        # y = flux[6:-6][::-1].copy()
-        # w = np.sqrt(weights[6:-6][::-1])
         t = bgknots[::-1][2:-2].copy()
         x = wavenum_scaled[::-1].copy()
         y = flux[::-1].copy()
         w = weights[::-1]
 
-        # Using perry splines
-        print("Start scipy robust fit")
-        bg_spline_fitter = SplineFitter(Spline, x, y, w, t, 2)
-        robust_fitter = RobustFitter(bg_spline_fitter)
-        bg_spline_fit = robust_fitter.fit(x, y, w)
-        print("Finish scipy robust fit")
-
-        bg_model_fit_points = bg_spline_fit(wavenum_scaled)
-
-        print("scipy-current compare:")
-        af = asdf.AsdfFile()
-        af.tree = {'scipyresult': bg_model_fit_points}
-        af.write_to('scipy.asdf')
-        return 0, 0, 0
+        fitter = SplineFitter(Spline, x, y, w, t, 2)
+        robust_fitter = RobustFitter(fitter)
+        bg_model = robust_fitter.fit(x, y, w)
     else:
         log.info(" not enough weighted data, no fit performed")
         return flux.copy(), np.zeros(flux.shape[0]), None
@@ -645,13 +599,15 @@ def fit_1d_background_complex(flux, weights, wavenum, order=2, ffreq=None):
     # sometimes the fits will fail for small segments because the model is too complex for the data,
     # in this case return the original array
     # NOTE: since iso-alpha no longer supported this shouldn't be an issue, but will leave here for now
-    try:
-        ftr.fit(flux.copy(), weights=weights.copy())
-    except LinAlgError:
-        return flux.copy(), np.zeros(flux.shape[0]), None
 
     # fit the background
-    bg_fit = bg_model.result(wavenum_scaled)
+    bg_fit = bg_model(wavenum_scaled)
+
+    print("Writing scipy result to file")
+    af = asdf.AsdfFile()
+    af.tree = {'bg_fit': bg_fit}
+    af.write_to('scipy_fit.asdf')
+
     bg_fit *= np.where(weights.copy() > 1e-07, 1, 1e-08)
 
     # linearly interpolate over the feature gaps if possible, stops issues later

@@ -31,16 +31,22 @@ def compare():
     weights_feat = tree['weights_feat']
     wpix_num = tree['wpix_num']
 
+    print("START: astropy based fit")
     result3 = remove_fringe_astropy(col, 0, ffreq[0], ffreq, dffreq, min_snr, snr2, ss,
                                     min_nfringes, max_nfringes, pgram_res, proc_data2, proc_factors2,
                                     pre_contrast, bg_fit, res_fringes, res_fringe_fit, res_fringe_fit_flag,
                                     wpix_num, col_wnum, col_weight, col_max_amp, weights_feat)
+    print("END: astropy based fit")
+    print("START: scipy based fit")
     result2 = remove_fringe_scipy(col, 0, ffreq[0], ffreq, dffreq, min_snr, snr2, ss,
                                   min_nfringes, max_nfringes, pgram_res, proc_data2, proc_factors2,
                                   pre_contrast, bg_fit, res_fringes, res_fringe_fit, res_fringe_fit_flag,
                                   wpix_num, col_wnum, col_weight, col_max_amp, weights_feat)
+    print("END: scipy based fit")
+    print("START: jwst based fit")
     result1 = remove_fringe(col, 0, ffreq[0], ffreq, dffreq, min_snr, snr2, ss,
                             min_nfringes, max_nfringes, pgram_res, proc_data1, proc_factors1,
                             pre_contrast, bg_fit, res_fringes, res_fringe_fit, res_fringe_fit_flag,
                             wpix_num, col_wnum, col_weight, col_max_amp, weights_feat)
+    print("END: jwst based fit")
     return None

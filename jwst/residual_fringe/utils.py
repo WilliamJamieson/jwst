@@ -464,10 +464,6 @@ def fit_1d_background_complex(flux, weights, wavenum, order=2, ffreq=None):
     if nper_cor >= 5:
         bgindx = make_knots(flux.copy(), int(nknots), weights=weights.copy())
         bgknots = wavenum_scaled[bgindx].astype(float)
-        print(f"utils: {bgknots=}")
-        af = asdf.AsdfFile()
-        af.tree = {'knots': bgknots, 'wavenum_scaled': wavenum_scaled}
-        af.write_to('knots.asdf')
         bg_model = SplinesModel(bgknots, order=order)
         fitter = Fitter(wavenum_scaled, bg_model)
     else:
@@ -482,13 +478,13 @@ def fit_1d_background_complex(flux, weights, wavenum, order=2, ffreq=None):
     except LinAlgError:
         return flux.copy(), np.zeros(flux.shape[0]), None
 
-    fitval = bg_model.result(wavenum_scaled)
-    af = asdf.AsdfFile()
-    af.tree = {'fitval': fitval, 'data': flux}
-    af.write_to('xrfspline.asdf')
-
     # fit the background
     bg_fit = bg_model.result(wavenum_scaled)
+    print("Writing jwst result to file")
+    af = asdf.AsdfFile()
+    af.tree = {'bg_fit': bg_fit}
+    af.write_to('jwst_fit.asdf')
+
     bg_fit *= np.where(weights.copy() > 1e-07, 1, 1e-08)
 
     # linearly interpolate over the feature gaps if possible, stops issues later
@@ -498,9 +494,6 @@ def fit_1d_background_complex(flux, weights, wavenum, order=2, ffreq=None):
         del nz, z
     except ValueError:
         pass
-    afr = asdf.AsdfFile()
-    afr.tree = {'bg_fit': bg_fit, 'bgindx': bgindx}
-    afr.write_to('fitpoints.asdf')
 
     return bg_fit, bgindx, fitter
 

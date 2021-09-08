@@ -204,9 +204,9 @@ class RobustShell(IterativeFitter):
         if onesided is None:
             return 0
         elif isinstance(onesided, str):
-            if onesided[0] is "p" or onesided[0] is "P":
+            if onesided[0] == "p" or onesided[0] == "P":
                 return +1
-            elif onesided[0] is "n" or onesided[0] is "N":
+            elif onesided[0] == "n" or onesided[0] == "N":
                 return -1
             else:
                 raise ValueError("Unknown string for onesided: %s" % onesided)
@@ -236,11 +236,6 @@ class RobustShell(IterativeFitter):
         param = self.fitter.fit(data, weights, **kwargs)
         self.npfit = self.fitter.npfit
         chi = self.fitter.chisq
-        print('initial chisq:', chi)
-        fitval = self.fitter.model.result(self.fitter.xdata, param)
-        afz = asdf.AsdfFile()
-        afz.tree = {'fitval': fitval}
-        afz.write_to('ofirstfit.asdf')
         fitarr = np.zeros((10, 1024))
         residarr = fitarr.copy()
         kernelarr = fitarr.copy()
@@ -251,7 +246,6 @@ class RobustShell(IterativeFitter):
 
             residuals = data - self.model.result(self.xdata, param)
             scale = self.fitter.scale
-            print('scale:', scale)
             residuals /= (scale * domain)
             robwgt = kernelfunc(residuals)
             kernelarr[self.iter] = robwgt
@@ -268,8 +262,6 @@ class RobustShell(IterativeFitter):
             wtarr[self.iter, :] = self.weights
             residarr[self.iter, :] = residuals
 
-            print('chi diff:', chi - trychi)
-            print('tol:', tol)
             if abs(chi - trychi) < tol:
                 self.report(self.verbose, param, trychi,
                             more=scale, force=True)
@@ -279,16 +271,8 @@ class RobustShell(IterativeFitter):
                         more=scale, force=(self.verbose >= 3))
             chi = trychi
             self.iter += 1
-            print('iter: ', self.iter)
-            print('scale: ', scale)
-            print('domain:', domain)
-            print('chisq:', chi)
         self.hessian = self.fitter.getHessian()
         self.chisq = trychi
-        af = asdf.AsdfFile()
-        af.tree = {'chi': chiarr, 'fitval': fitarr,
-                   'resid': residarr, 'netw': wtarr, 'kernel': kernelarr}
-        af.write_to('orobust.asdf')
         return param
 
     def getOneSidedWeights(self, wgt, res, onesided):

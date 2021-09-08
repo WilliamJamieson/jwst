@@ -467,44 +467,34 @@ def fit_1d_background_complex(flux, weights, wavenum, order=2, ffreq=None):
         "fit_1d_background_complex: column has {} weighted fringe periods".format(nper_cor))
 
     # require at least 5 sine periods to fit
-    if nper_cor >= 5:
-        bgindx = make_knots(flux.copy(), int(nknots), weights=weights.copy())
-        bgknots = wavenum_scaled[bgindx].astype(float)
 
-        t = bgknots[::-1][1:-1].copy()
-        x = wavenum_scaled[::-1].copy()
-        y = flux[::-1].copy()
-        w = weights[::-1]
-
-        # Using astropy splines
-        print("Start astropy robust fit")
-        spline_model = NewSpline1D(knots=t, degree=2, bounds=[x[0], x[-1]])
-        bg_spline_fitter = NewLSQSplineFitter()
-        robust_fitter = ChiSqOutlierRejectionFitter(bg_spline_fitter)
-        bg_spline_fit = robust_fitter(spline_model, x, y, weights=w)
-        print("Finish astropy robust fit")
-
-        bg_model_fit_points = bg_spline_fit(wavenum_scaled)
-
-        print("astropy-current compare:")
-        af = asdf.AsdfFile()
-        af.tree = {'astropyresult': bg_model_fit_points}
-        af.write_to('astropy.asdf')
-        return 0, 0, 0
-    else:
+    if nper < 5:
         log.info(" not enough weighted data, no fit performed")
         return flux.copy(), np.zeros(flux.shape[0]), None
-    # ftr = RobustShell(fitter, domain=10)
-    # sometimes the fits will fail for small segments because the model is too complex for the data,
-    # in this case return the original array
-    # NOTE: since iso-alpha no longer supported this shouldn't be an issue, but will leave here for now
-    try:
-        ftr.fit(flux.copy(), weights=weights.copy())
-    except LinAlgError:
-        return flux.copy(), np.zeros(flux.shape[0]), None
+
+    bgindx = make_knots(flux.copy(), int(nknots), weights=weights.copy())
+    bgknots = wavenum_scaled[bgindx].astype(float)
+
+    # Reverse (and clip) the fit data as scipy/astropy need monotone increasing data.
+    t = bgknots[::-1][1:-1]
+    x = wavenum_scaled[::-1]
+    y = flux[::-1]
+    w = weights[::-1]
+
+    # Fit the spline
+    spline_model = NewSpline1D(knots=t, degree=2, bounds=[x[0], x[-1]])
+    fitter = NewLSQSplineFitter()
+    robust_fitter = ChiSqOutlierRejectionFitter(fitter)
+    bg_model = robust_fitter(spline_model, x, y, weights=w)
 
     # fit the background
-    bg_fit = bg_model.result(wavenum_scaled)
+    bg_fit = bg_model(wavenum_scaled)
+
+    print("Writing astropy result to file")
+    af = asdf.AsdfFile()
+    af.tree = {'bg_fit': bg_fit}
+    af.write_to('astropy_jwst.asdf')
+
     bg_fit *= np.where(weights.copy() > 1e-07, 1, 1e-08)
 
     # linearly interpolate over the feature gaps if possible, stops issues later
