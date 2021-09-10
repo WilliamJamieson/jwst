@@ -8,20 +8,15 @@ from scipy.interpolate import pchip
 # from astropy.modeling import models
 # from astropy.modeling.models import Sine1D
 from astropy.timeseries import LombScargle
-from scipy.interpolate import LSQUnivariateSpline
 
-from .SplinesModel import SplinesModel
-from .Fitter import Fitter
 from .SineModel import SineModel
 
 from .LevenbergMarquardtFitter import LevenbergMarquardtFitter
 from .RobustShell import RobustShell
-from numpy.linalg.linalg import LinAlgError
-
-from .aspline import Spline1D
 
 from astropy.modeling.spline import NewSpline1D
 from astropy.modeling.fitting import NewLSQSplineFitter, ChiSqOutlierRejectionFitter
+from astropy.modeling.models import Sine1D, Cosine1D
 
 
 import logging
@@ -138,6 +133,31 @@ def fit_quality_stats(stats):
 
     """
     return np.mean(stats), np.median(stats), np.std(stats), np.amax(stats)
+
+
+def fourier_term_1D(frequency, phased=False):
+    sin_mdl = Sine1D(frequency=frequency)
+    sin_mdl.frequency.fixed = True
+
+    if phased:
+        return sin_mdl
+    else:
+        sin_mdl.phase.fixed = True
+
+        cos_mdl = Cosine1D(frequency=frequency)
+        cos_mdl.frequency.fixed = True
+        cos_mdl.phase.fixed = True
+
+        return cos_mdl + sin_mdl
+
+
+def fourier_series_1D(frequencies: np.ndarray, phased=False):
+    mdl = fourier_term_1D(frequencies[0], phased)
+
+    for frequency in frequencies[1:]:
+        mdl = mdl + fourier_term_1D(frequency, phased)
+
+    return mdl
 
 
 def multi_sine(n):
