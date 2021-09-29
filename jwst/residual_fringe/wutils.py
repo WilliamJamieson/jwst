@@ -596,7 +596,8 @@ def fit_quality(wavenum, res_fringes, weights, ffreq, dffreq, save_results=False
     return contrast, quality
 
 
-def fit_1d_fringes_bayes_evidence(res_fringes, weights, wavenum, ffreq, dffreq, min_nfringes, max_nfringes, pgram_res):
+def fit_1d_fringes_bayes_evidence(res_fringes, weights, wavenum, ffreq, dffreq, min_nfringes, max_nfringes, pgram_res,
+                                  bayes_threshold):
     """Fit the residual fringe signal.
 
     Takes an input 1D array of residual fringes and fits using the supplied mode in the BayesicFitting package:
@@ -626,6 +627,9 @@ def fit_1d_fringes_bayes_evidence(res_fringes, weights, wavenum, ffreq, dffreq, 
 
     wavenum: numpy array, required
         the 1D array of wavenum
+
+    bayes_threshold: float, required
+        the threshold for the bayes evidence
 
 
     :Returns:
@@ -789,7 +793,8 @@ def fit_1d_fringes_bayes_evidence(res_fringes, weights, wavenum, ffreq, dffreq, 
                 "fit_1d_fringes_bayes_evidence: bayes factor={}".format(bayes_factor))
 
             # strong evidence thresh (log(bayes factor)>1, Kass and Raftery 1995)
-            if bayes_factor > 1:
+            # the bound value should be in a reference file
+            if bayes_factor > bayes_threshold:
                 evidence1 = evidence2
                 opt_nfringes = nfringes
                 log.debug(

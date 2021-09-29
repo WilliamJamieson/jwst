@@ -1,4 +1,5 @@
 import asdf
+import numpy as np
 from .bayes_ab import remove_fringe, remove_fringe_scipy, remove_fringe_astropy
 
 
@@ -15,7 +16,8 @@ def compare():
     dffreq = tree['dffreq']
     ffreq = tree['ffreq']
     max_nfringes = tree['max_nfringes']
-    min_nfringes = tree['min_nfringes']
+    # min_nfringes = tree['min_nfringes']
+    min_nfringes = np.array([1, 1])
     min_snr = tree['min_snr']
     pgram_res = tree['pgram_res']
     pre_contrast = tree['pre_contrast']
@@ -30,12 +32,13 @@ def compare():
     ss = tree['ss']
     weights_feat = tree['weights_feat']
     wpix_num = tree['wpix_num']
+    bayes_threshold = 100
 
     print("START: astropy based fit")
     result3 = remove_fringe_astropy(col, 0, ffreq[0], ffreq, dffreq, min_snr, snr2, ss,
                                     min_nfringes, max_nfringes, pgram_res, proc_data2, proc_factors2,
                                     pre_contrast, bg_fit, res_fringes, res_fringe_fit, res_fringe_fit_flag,
-                                    wpix_num, col_wnum, col_weight, col_max_amp, weights_feat)
+                                    wpix_num, col_wnum, col_weight, col_max_amp, weights_feat, bayes_threshold)
     print("END: astropy based fit")
     # print("START: scipy based fit")
     # result2 = remove_fringe_scipy(col, 0, ffreq[0], ffreq, dffreq, min_snr, snr2, ss,
@@ -47,6 +50,6 @@ def compare():
     result1 = remove_fringe(col, 0, ffreq[0], ffreq, dffreq, min_snr, snr2, ss,
                             min_nfringes, max_nfringes, pgram_res, proc_data1, proc_factors1,
                             pre_contrast, bg_fit, res_fringes, res_fringe_fit, res_fringe_fit_flag,
-                            wpix_num, col_wnum, col_weight, col_max_amp, weights_feat)
+                            wpix_num, col_wnum, col_weight, col_max_amp, weights_feat, bayes_threshold)
     print("END: jwst based fit")
     return None

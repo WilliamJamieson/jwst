@@ -15,10 +15,31 @@ log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 
 
+def generate_background(fn, ffreq, proc_data, bg_fit, res_fringes,
+                        col_wnum, col_weight, weights_feat):
+
+    print("    START: fit_1d_background_complex")
+    bg_fit, bgindx, fitter = \
+        utils.fit_1d_background_complex(proc_data, weights_feat,
+                                        col_wnum, ffreq=ffreq[fn])
+    print("    END: fit_1d_background_complex")
+
+    # get the residual fringes as fraction of signal
+    res_fringes = np.divide(proc_data, bg_fit, out=np.zeros_like(proc_data),
+                            where=bg_fit != 0)
+    res_fringes = np.subtract(
+        res_fringes, 1, where=res_fringes != 0)
+    res_fringes *= np.where(
+        col_weight > 1e-07, 1, 1e-08)
+
+    return bg_fit, bgindx, fitter, res_fringes
+
+
 def remove_fringe(col, fn, ff, ffreq, dffreq, min_snr, snr2, ss,
                   min_nfringes, max_nfringes, pgram_res, proc_data, proc_factors,
                   pre_contrast, bg_fit, res_fringes, res_fringe_fit, res_fringe_fit_flag,
-                  wpix_num, col_wnum, col_weight, col_max_amp, weights_feat):
+                  wpix_num, col_wnum, col_weight, col_max_amp, weights_feat,
+                  bayes_threshold):
     if ff > 1e-03:
         log.debug(
             ' starting ffreq = {}'.format(ff))
@@ -28,19 +49,19 @@ def remove_fringe(col, fn, ff, ffreq, dffreq, min_snr, snr2, ss,
             log.debug(
                 " fitting spectral baseline")
 
-            print("    START: fit_1d_background_complex")
-            bg_fit, bgindx, fitter = \
-                utils.fit_1d_background_complex(proc_data, weights_feat,
-                                                col_wnum, ffreq=ffreq[fn])
-            print("    END: fit_1d_background_complex")
+            bg_fit, bgindx, fitter, res_fringes = \
+                generate_background(fn, ffreq, proc_data, bg_fit, res_fringes, col_wnum, col_weight, weights_feat)
 
-            # get the residual fringes as fraction of signal
-            res_fringes = np.divide(proc_data, bg_fit, out=np.zeros_like(proc_data),
-                                    where=bg_fit != 0)
-            res_fringes = np.subtract(
-                res_fringes, 1, where=res_fringes != 0)
-            res_fringes *= np.where(
-                col_weight > 1e-07, 1, 1e-08)
+            print("   START: Writing bayes_evidence input data")
+            np.save("res_fringes.npy", res_fringes)
+            np.save("weights_feat.npy", weights_feat)
+            np.save("col_wnum.npy", col_wnum)
+            np.save("ffreq.npy", ffreq)
+            np.save("dffreq.npy", dffreq)
+            np.save("min_nfringes.npy", min_nfringes)
+            np.save("max_nfringes.npy", max_nfringes)
+            np.save("pgram_res.npy", pgram_res)
+            print("   END: Writing bayes_evidence input data")
 
             # # get the pre-correction contrast using fringe component 1
             # if fn == 0:
@@ -66,8 +87,12 @@ def remove_fringe(col, fn, ff, ffreq, dffreq, min_snr, snr2, ss,
                                                     dffreq[fn],
                                                     min_nfringes=min_nfringes[fn],
                                                     max_nfringes=max_nfringes[fn],
-                                                    pgram_res=pgram_res[fn])
+                                                    pgram_res=pgram_res[fn],
+                                                    bayes_threshold=bayes_threshold)
             print("    END: fit_1d_fringes_bayes_evidence")
+
+            print("    SAVING: JWST_res_fringe_fit")
+            np.save("JWST_res_fringe_fit.npy", res_fringe_fit)
     return
 
     #         # check for fit blowing up, reset rfc fit to 0, raise a flag
@@ -166,10 +191,30 @@ def remove_fringe_scipy(col, fn, ff, ffreq, dffreq, min_snr, snr2, ss,
     # return None
 
 
+def generate_background_astropy(fn, ffreq, proc_data, bg_fit, res_fringes,
+                                col_wnum, col_weight, weights_feat):
+
+    print("    START: fit_1d_background_complex")
+    bg_fit, bgindx, fitter = \
+        wutils.fit_1d_background_complex(proc_data, weights_feat,
+                                         col_wnum, ffreq=ffreq[fn])
+    print("    END: fit_1d_background_complex")
+
+    # get the residual fringes as fraction of signal
+    res_fringes = np.divide(proc_data, bg_fit, out=np.zeros_like(proc_data),
+                            where=bg_fit != 0)
+    res_fringes = np.subtract(
+        res_fringes, 1, where=res_fringes != 0)
+    res_fringes *= np.where(
+        col_weight > 1e-07, 1, 1e-08)
+
+    return bg_fit, bgindx, fitter, res_fringes
+
+
 def remove_fringe_astropy(col, fn, ff, ffreq, dffreq, min_snr, snr2, ss,
                           min_nfringes, max_nfringes, pgram_res, proc_data, proc_factors,
                           pre_contrast, bg_fit, res_fringes, res_fringe_fit, res_fringe_fit_flag,
-                          wpix_num, col_wnum, col_weight, col_max_amp, weights_feat):
+                          wpix_num, col_wnum, col_weight, col_max_amp, weights_feat, bayes_threshold):
     if ff > 1e-03:
         log.debug(
             ' starting ffreq = {}'.format(ff))
@@ -179,19 +224,8 @@ def remove_fringe_astropy(col, fn, ff, ffreq, dffreq, min_snr, snr2, ss,
             log.debug(
                 " fitting spectral baseline")
 
-            print("    START: fit_1d_background_complex")
-            bg_fit, bgindx, fitter = \
-                wutils.fit_1d_background_complex(proc_data, weights_feat,
-                                                 col_wnum, ffreq=ffreq[fn])
-            print("    END: fit_1d_background_complex")
-
-            # get the residual fringes as fraction of signal
-            res_fringes = np.divide(proc_data, bg_fit, out=np.zeros_like(proc_data),
-                                    where=bg_fit != 0)
-            res_fringes = np.subtract(
-                res_fringes, 1, where=res_fringes != 0)
-            res_fringes *= np.where(
-                col_weight > 1e-07, 1, 1e-08)
+            bg_fit, bgindx, fitter, res_fringes = \
+                generate_background_astropy(fn, ffreq, proc_data, bg_fit, res_fringes, col_wnum, col_weight, weights_feat)
 
             # # get the pre-correction contrast using fringe component 1
             # if fn == 0:
@@ -216,8 +250,12 @@ def remove_fringe_astropy(col, fn, ff, ffreq, dffreq, min_snr, snr2, ss,
                                                      dffreq[fn],
                                                      min_nfringes=min_nfringes[fn],
                                                      max_nfringes=max_nfringes[fn],
-                                                     pgram_res=pgram_res[fn])
+                                                     pgram_res=pgram_res[fn],
+                                                     bayes_threshold=bayes_threshold)
             print("    END: fit_1d_fringes_bayes_evidence")
+
+            print("    SAVING: ASTROPY_res_fringe_fit")
+            np.save("ASTROPY_res_fringe_fit.npy", res_fringe_fit)
 
             # # check for fit blowing up, reset rfc fit to 0, raise a flag
             # log.debug(

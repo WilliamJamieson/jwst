@@ -566,7 +566,8 @@ def fit_quality(wavenum, res_fringes, weights, ffreq, dffreq, save_results=False
     return contrast, quality
 
 
-def fit_1d_fringes_bayes_evidence(res_fringes, weights, wavenum, ffreq, dffreq, min_nfringes, max_nfringes, pgram_res):
+def fit_1d_fringes_bayes_evidence(res_fringes, weights, wavenum, ffreq, dffreq, min_nfringes, max_nfringes, pgram_res,
+                                  bayes_threshold):
     """Fit the residual fringe signal.
 
     Takes an input 1D array of residual fringes and fits using the supplied mode in the BayesicFitting package:
@@ -596,6 +597,9 @@ def fit_1d_fringes_bayes_evidence(res_fringes, weights, wavenum, ffreq, dffreq, 
 
     wavenum: numpy array, required
         the 1D array of wavenum
+
+    bayes_threshold: float, required
+        the threshold for the bayes evidence
 
 
     :Returns:
@@ -725,13 +729,15 @@ def fit_1d_fringes_bayes_evidence(res_fringes, weights, wavenum, ffreq, dffreq, 
                 print(f"            final: {mdl_fit.parameters=}")
 
                 # try get evidence (may fail for large component fits to noisy data, set to very negative value
+                print("            START: getEvidence")
                 try:
                     evidence2 = fitter.getEvidence(
                         limits=[-1, 1], noiseLimits=[0.001, 1])
                 except ValueError as err:
                     print(err)
-                    print("            BAD getEvidence")
+                    print("            BAD!!!!! getEvidence")
                     evidence2 = -1e9
+                print("            END: getEvidence")
             except RuntimeError:
                 print("            BAD fit")
                 evidence2 = -1e9
@@ -746,12 +752,15 @@ def fit_1d_fringes_bayes_evidence(res_fringes, weights, wavenum, ffreq, dffreq, 
                 "fit_1d_fringes_bayes_evidence: bayes factor={}".format(bayes_factor))
 
             # strong evidence thresh (log(bayes factor)>1, Kass and Raftery 1995)
-            if bayes_factor > 1:
+            # the bound value should be in a reference file
+            if bayes_factor > bayes_threshold:
                 evidence1 = evidence2
                 opt_nfringes = nfringes
+                print("            CONTINUE ITERATION")
                 log.debug(
                     "fit_1d_fringes_bayes_evidence: strong evidence for nfringes={} ".format(nfringes))
             else:
+                print("            BREAK ITERATION")
                 log.debug(
                     "fit_1d_fringes_bayes_evidence: no evidence for nfringes={}".format(nfringes))
                 break

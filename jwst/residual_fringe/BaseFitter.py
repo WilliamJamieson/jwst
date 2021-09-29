@@ -832,6 +832,7 @@ class BaseFitter(object):
         """
 #        dof = self.nxdata - self.npfit
         dof = self.sumwgt - self.npfit
+        print(f"                {dof=}")
         if dof <= 0:
             raise RuntimeError("More parameters than (weighted) data points")
 
@@ -883,7 +884,12 @@ class BaseFitter(object):
         if priorlength < self.npfit:                          # add enough times the last one
             spr += (self.npfit - priorlength) * prirange[-1]
 
-        lidet = math.log(numpy.linalg.det(self.hessian))
+        hessian = self.hessian
+        # print(f"                {hessian=}")
+        hessian_det = numpy.linalg.det(hessian)
+        print(f"                {hessian_det=}")
+        lidet = math.log(hessian_det)
+        print(f"                {lidet=}")
 
         # implementing eq 18 (Kester 2002) term by term
         self.logOccam += -spr + 0.5 * (self.npfit *
