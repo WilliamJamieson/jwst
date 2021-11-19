@@ -148,6 +148,12 @@ class ChiSqOutlierRejectionFitter:
 
         return log_likelihood + log_occam
 
+    def get_evidence(self, model, x, y, limits,
+                     weights=None, noise_limits=None, fixed_scale=None):
+        return self._get_log_z(model, x, y, limits,
+                               weights=weights, noise_limits=noise_limits,
+                               fixed_scale=fixed_scale) / np.log(10)
+
     def __call__(self, model, x, y, weights=None, **kwargs):
         # Assume equal weights if none are provided
 
