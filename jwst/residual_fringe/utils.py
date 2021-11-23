@@ -476,6 +476,7 @@ def fit_1d_background_complex(flux, weights, wavenum, order=2, ffreq=None):
     except ValueError:
         pass
 
+
     return bg_fit, bgindx, fitter
 
 
