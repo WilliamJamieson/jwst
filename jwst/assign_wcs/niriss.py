@@ -206,6 +206,7 @@ def niriss_soss(input_model, reference_files):
     soss_model = NirissSOSSModel([1, 2, 3],
                                  [cm_order1, cm_order2, cm_order3]
                                  ).rename('3-order SOSS Model')
+    soss_model.bounding_box = niriss_bounding_box(input_model)
 
     # Define the pipeline based on the frames and models above.
     pipeline = [(detector, soss_model),
