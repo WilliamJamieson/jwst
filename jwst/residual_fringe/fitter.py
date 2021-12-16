@@ -34,7 +34,7 @@ class ChiSqOutlierRejectionFitter:
         if weights is not None:
             resid *= weights
 
-        return np.sum(resid)
+        return np.nansum(resid)
 
     @staticmethod
     def _params(model):
