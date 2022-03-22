@@ -146,37 +146,6 @@ def find_evidence(model, wavenum, res_fringes, weights, limits, noise_limits):
         return -1e9
 
 
-def multi_sine(n):
-    """
-    Return a model composed of n sines
-
-    :Parameters:
-
-    n: int, required
-        number of sines
-
-    :Returns:
-
-    mdl, BayesFitting model
-        the model composed of n sines
-    """
-
-    # make the first sine
-    mdl = SineModel()
-
-    # make a copy
-    model = mdl.copy()
-
-    # add the copy n-1 times
-    for i in range(1, n):
-        mdl.addModel(model.copy())
-
-    # clean
-    del model
-
-    return mdl
-
-
 def fit_envelope(wavenum, signal):
     """ Fit the upper and lower envelope of signal using a univariate spline
 
