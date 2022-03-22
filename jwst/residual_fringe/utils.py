@@ -364,8 +364,8 @@ def fit_1d_background_complex(flux, weights, wavenum, order=2, ffreq=None, test=
     # Fit the spline
     spline_model = Spline1D(knots=t, degree=2, bounds=[x[0], x[-1]])
     fitter = SplineExactKnotsFitter()
-    robust_fitter = ChiSqOutlierRejectionFitter(fitter)
-    bg_model = robust_fitter(spline_model, x, y, weights=w)
+    outlier_rejection_fitter = ChiSqOutlierRejectionFitter(fitter)
+    bg_model, _, _ = outlier_rejection_fitter(spline_model, x, y, weights=w)
 
     # fit the background
     bg_fit = bg_model(wavenum_scaled)
