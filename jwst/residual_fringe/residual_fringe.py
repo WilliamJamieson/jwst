@@ -329,14 +329,14 @@ class ResidualFringeCorrection():
                                             # fit the residual fringes
                                             log.debug(" set up bayes ")
                                             res_fringe_fit, wpix_num, opt_nfringe, peak_freq, freq_min, freq_max = \
-                                                utils.new_fit_1d_fringes_bayes_evidence(res_fringes,
-                                                                                        weights_feat,
-                                                                                        col_wnum,
-                                                                                        ffreq[fn],
-                                                                                        dffreq[fn],
-                                                                                        min_nfringes=min_nfringes[fn],
-                                                                                        max_nfringes=max_nfringes[fn],
-                                                                                        pgram_res=pgram_res[fn])
+                                                utils.fit_1d_fringes_bayes_evidence(res_fringes,
+                                                                                    weights_feat,
+                                                                                    col_wnum,
+                                                                                    ffreq[fn],
+                                                                                    dffreq[fn],
+                                                                                    min_nfringes=min_nfringes[fn],
+                                                                                    max_nfringes=max_nfringes[fn],
+                                                                                    pgram_res=pgram_res[fn])
 
                                             # check for fit blowing up, reset rfc fit to 0, raise a flag
                                             log.debug("check residual fringe fit for bad fit regions")

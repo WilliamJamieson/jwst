@@ -372,7 +372,7 @@ def fit_1d_background_complex(flux, weights, wavenum, order=2, ffreq=None, test=
         log.info(" not enough weighted data, no fit performed")
         return flux.copy(), np.zeros(flux.shape[0]), None
 
-    bgindx = new_make_knots(flux.copy(), int(nknots), weights=weights.copy())
+    bgindx = make_knots(flux.copy(), int(nknots), weights=weights.copy())
     bgknots = wavenum_scaled[bgindx].astype(float)
 
     # Reverse (and clip) the fit data as scipy/astropy need monotone increasing data.
@@ -468,7 +468,7 @@ def fit_quality(wavenum, res_fringes, weights, ffreq, dffreq, save_results=False
     return contrast, quality
 
 
-def new_fit_1d_fringes_bayes_evidence(res_fringes, weights, wavenum, ffreq, dffreq, min_nfringes, max_nfringes, pgram_res):
+def fit_1d_fringes_bayes_evidence(res_fringes, weights, wavenum, ffreq, dffreq, min_nfringes, max_nfringes, pgram_res):
 
     """Fit the residual fringe signal.- Improved method
     Takes an input 1D array of residual fringes and fits using the supplied mode in the BayesicFitting package:
@@ -595,7 +595,7 @@ def new_fit_1d_fringes_bayes_evidence(res_fringes, weights, wavenum, ffreq, dffr
     return res_fringe_fit, weighted_pix_num, nfringes, peak_freq, freq_min, freq_max
 
 
-def new_make_knots(flux, nknots=20, weights=None):
+def make_knots(flux, nknots=20, weights=None):
     """Defines knot positions for piecewise models. This simply splits the array into sections. It does
     NOT take into account the shape of the data.
 
@@ -616,7 +616,7 @@ def new_make_knots(flux, nknots=20, weights=None):
         the indices of the knots
 
     """
-    log.debug("new_make_knots: creating {} knots on flux array".format(nknots))
+    log.debug("make_knots: creating {} knots on flux array".format(nknots))
 
     # create an array of indices
     npoints = flux.shape[0]
@@ -646,7 +646,7 @@ def new_make_knots(flux, nknots=20, weights=None):
     # if the weights array is supplied, determine the edges of good data and set knots there
     if weights is not None:
 
-        log.debug("new_make_knots: adding knots at edges of bad pixels in weights array")
+        log.debug("make_knots: adding knots at edges of bad pixels in weights array")
 
         # if there are bad pixels in the flux array with flux~0,
         # add these to weights array if not already there
