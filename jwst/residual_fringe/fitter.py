@@ -9,7 +9,7 @@ class RejectionConvergenceError(RuntimeError):
     """
 
 
-class DegenerateEvidenceError(Exception):
+class DegenerateEvidenceError(RuntimeError):
     """
     Raised when evidence calculation becomes degenerate.
     """
@@ -156,7 +156,7 @@ class ChiSqOutlierRejectionFitter:
         return log_z
 
     def get_evidence(self, model, x, y, weights,
-                     limits, noise_limits, fixed_scale):
+                     limits, noise_limits, fixed_scale=None):
         return self._get_log_z(model, x, y, weights,
                                limits, noise_limits, fixed_scale) / np.log(10)
 

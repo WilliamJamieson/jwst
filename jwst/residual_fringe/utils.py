@@ -11,9 +11,10 @@ from BayesicFitting import ConstantModel
 from BayesicFitting import Fitter
 
 from astropy.modeling.models import Spline1D
-from astropy.modeling.fitting import SplineExactKnotsFitter
+from astropy.modeling.fitting import SplineExactKnotsFitter, LevMarLSQFitter
 
-from .fitter import ChiSqOutlierRejectionFitter
+from .fitter import ChiSqOutlierRejectionFitter, DegenerateEvidenceError
+from .fourier import FourierSeries1D
 
 import logging
 log = logging.getLogger(__name__)
@@ -124,6 +125,25 @@ def fit_quality_stats(stats):
 
     """
     return np.mean(stats), np.median(stats), np.std(stats),  np.amax(stats)
+
+
+def fit_nfringes(nfringes, freqs, wavenum, res_fringes, weights):
+    frequencies = np.array(freqs[:nfringes])
+
+    model = FourierSeries1D(frequencies)
+    fitter = ChiSqOutlierRejectionFitter(LevMarLSQFitter())
+
+    return fitter(model, wavenum, res_fringes, weights=weights)
+
+
+def find_evidence(model, wavenum, res_fringes, weights, limits, noise_limits):
+    fitter = ChiSqOutlierRejectionFitter(LevMarLSQFitter())
+
+    try:
+        return fitter.get_evidence(model, wavenum, res_fringes,
+                                   weights, limits, noise_limits)
+    except DegenerateEvidenceError:
+        return -1e9
 
 
 def multi_sine(n):
@@ -475,6 +495,7 @@ def new_fit_1d_fringes_bayes_evidence(res_fringes, weights, wavenum, ffreq, dffr
     """
     # initialize output to none
     res_fringe_fit = None
+    best_model = None
     weighted_pix_num = None
     peak_freq = None
     freq_min = None
@@ -503,16 +524,21 @@ def new_fit_1d_fringes_bayes_evidence(res_fringes, weights, wavenum, ffreq, dffr
     res_fringes_proc = res_fringes.copy()
     nfringes = 0
     keep_dict = {}
-    best_mdl = None
     fitted_frequencies = []
 
+    # These should be read from an input file
+    limits = [-2, 1000]
+    noise_limits = [0.001, 1]
+
+    # NOTE: what is this for?
     # get the initial evidence from ConstantModel
     sdml = ConstantModel(values=1.0)
     sftr = Fitter(wavenum, sdml)
     _ = sftr.fit(res_fringes, weights=weights)
-    evidence1 = sftr.getEvidence(limits=[-2, 1000], noiseLimits=[0.001, 1])
+    evidence = sftr.getEvidence(limits=limits, noiseLimits=noise_limits)
     log.debug(
-        "fit_1d_fringes_bayes_evidence: Initial Evidence: {}".format(evidence1))
+        "fit_1d_fringes_bayes_evidence: Initial Evidence: {}".format(evidence))
+    # END NOTE
 
     for f in np.arange(max_nfringes):
         log.debug(
@@ -535,37 +561,16 @@ def new_fit_1d_fringes_bayes_evidence(res_fringes, weights, wavenum, ffreq, dffr
         keep_dict[keep_ind] = freqs
 
         log.debug("fit_1d_fringes_bayes_evidence: creating multisine model of {} freqs".format(nfringes + 1))
-        mdl = multi_sine(nfringes + 1)
+        model, new_weights, chi = fit_nfringes(nfringes + 1, freqs, wavenum, res_fringes, weights)
+        new_evidence = find_evidence(model, wavenum, res_fringes, new_weights, limits, noise_limits)
+        log.debug(f"fit_1d_fringes_bayes_evidence: nfringe={nfringes + 1} ev={new_evidence} chi={chi}")
 
-        # fit the multi-sine model and get evidence
-        fitter = LevenbergMarquardtFitter(wavenum, mdl, verbose=0, keep=keep_dict)
-        ftr = RobustShell(fitter, domain=10)
-        try:
-            pars = ftr.fit(res_fringes, weights=weights)
-
-            # free the parameters and refit
-            mdl = multi_sine(nfringes + 1)
-            mdl.parameters = pars
-            fitter = LevenbergMarquardtFitter(wavenum, mdl, verbose=0)
-            ftr = RobustShell(fitter, domain=10)
-            pars = ftr.fit(res_fringes, weights=weights)
-
-            # try get evidence (may fail for large component fits to noisy data, set to very negative value
-            try:
-                evidence2 = fitter.getEvidence(limits=[-2, 1000], noiseLimits=[0.001, 1])
-            except ValueError:
-                evidence2 = -1e9
-        except RuntimeError:
-            evidence2 = -1e9
-
-        log.debug("fit_1d_fringes_bayes_evidence: nfringe={} ev={} chi={}".format(nfringes, evidence2, fitter.chisq))
-
-        bayes_factor = evidence2 - evidence1
+        bayes_factor = new_evidence - evidence
         log.debug(
             "fit_1d_fringes_bayes_evidence: bayes factor={}".format(bayes_factor))
         if bayes_factor > 1:  # strong evidence thresh (log(bayes factor)>1, Kass and Raftery 1995)
-            evidence1 = evidence2
-            best_mdl = mdl.copy()
+            evidence = new_evidence
+            best_model = model
             fitted_frequencies.append(freqs)
             log.debug(
                 "fit_1d_fringes_bayes_evidence: strong evidence for nfringes={} ".format(nfringes + 1))
@@ -575,7 +580,7 @@ def new_fit_1d_fringes_bayes_evidence(res_fringes, weights, wavenum, ffreq, dffr
             break
 
         # subtract the fringes for this frequency
-        res_fringe_fit = best_mdl(wavenum)
+        res_fringe_fit = best_model(wavenum)
         res_fringes_proc = res_fringes.copy() - res_fringe_fit
         nfringes += 1
 
