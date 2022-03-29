@@ -127,23 +127,26 @@ def fit_quality_stats(stats):
     return np.mean(stats), np.median(stats), np.std(stats),  np.amax(stats)
 
 
-def fit_nfringes(nfringes, freqs, wavenum, res_fringes, weights):
-    frequencies = np.array(freqs[:nfringes])
-
-    model = FourierSeries1D(frequencies)
+def fit_nfringes(nfringes, main_freq, wavenum, res_fringes, weights, limits, noise_limits):
     fitter = ChiSqOutlierRejectionFitter(LevMarLSQFitter())
+    model = FourierSeries1D(nfringes)
 
-    return fitter(model, wavenum, res_fringes, weights=weights)
+    # fix the most significant frequency and fit
+    model.fix_frequency(main_freq)
+    new_model, _, _ = fitter(model, wavenum, res_fringes, weights=weights)
 
+    # free the most significant frequency and refit
+    new_model.unfix_frequency()
+    new_model, new_weights, chi = fitter(new_model, wavenum, res_fringes, weights=weights)
 
-def find_evidence(model, wavenum, res_fringes, weights, limits, noise_limits):
-    fitter = ChiSqOutlierRejectionFitter(LevMarLSQFitter())
-
+    # compute evidence
     try:
-        return fitter.get_evidence(model, wavenum, res_fringes,
-                                   weights, limits, noise_limits)
+        evidence = fitter.get_evidence(new_model, wavenum, res_fringes, new_weights,
+                                       limits, noise_limits)
     except DegenerateEvidenceError:
-        return -1e9
+        evidence = -1e9
+
+    return new_model, evidence, chi
 
 
 def fit_envelope(wavenum, signal):
@@ -523,15 +526,14 @@ def fit_1d_fringes_bayes_evidence(res_fringes, weights, wavenum, ffreq, dffreq, 
 
         log.debug("fit_1d_fringes_bayes_evidence: get the most significant frequency in the periodogram")
         peak = np.argmax(pgram)
-        freqs = 1. / freq[peak]
+        main_freq = 1. / freq[peak]
 
         # fix the most significant frequency in the fixed dict that is passed to fitter
         keep_ind = nfringes * 3
-        keep_dict[keep_ind] = freqs
+        keep_dict[keep_ind] = main_freq
 
         log.debug("fit_1d_fringes_bayes_evidence: creating multisine model of {} freqs".format(nfringes + 1))
-        model, new_weights, chi = fit_nfringes(nfringes + 1, freqs, wavenum, res_fringes, weights)
-        new_evidence = find_evidence(model, wavenum, res_fringes, new_weights, limits, noise_limits)
+        model, new_evidence, chi = fit_nfringes(nfringes + 1, main_freq, wavenum, res_fringes, weights, limits, noise_limits)
         log.debug(f"fit_1d_fringes_bayes_evidence: nfringe={nfringes + 1} ev={new_evidence} chi={chi}")
 
         bayes_factor = new_evidence - evidence
@@ -540,7 +542,7 @@ def fit_1d_fringes_bayes_evidence(res_fringes, weights, wavenum, ffreq, dffreq, 
         if bayes_factor > 1:  # strong evidence thresh (log(bayes factor)>1, Kass and Raftery 1995)
             evidence = new_evidence
             best_model = model
-            fitted_frequencies.append(freqs)
+            fitted_frequencies.append(main_freq)
             log.debug(
                 "fit_1d_fringes_bayes_evidence: strong evidence for nfringes={} ".format(nfringes + 1))
         else:
