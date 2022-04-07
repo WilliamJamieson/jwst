@@ -1,11 +1,8 @@
 import numpy as np
 
 from astropy.modeling.core import Fittable1DModel
+from astropy.modeling.models import Cosine1D, Sine1D
 from astropy.modeling.parameters import Parameter
-from astropy.units import Quantity
-
-
-TWOPI = 2 * np.pi
 
 
 class FourierSeries1D(Fittable1DModel):
@@ -36,9 +33,9 @@ class FourierSeries1D(Fittable1DModel):
         names = []
 
         for index in range(self.n_terms):
-            names.append(f"omega_{index}")
             names.append(f"a_{index}")
             names.append(f"b_{index}")
+            names.append(f"omega_{index}")
 
         return tuple(names)
 
@@ -47,76 +44,65 @@ class FourierSeries1D(Fittable1DModel):
 
         term_parameters = []
         for _ in range(self.n_terms):
-            f = parameters.pop(0)
             a = parameters.pop(0)
             b = parameters.pop(0)
+            f = parameters.pop(0)
 
-            term_parameters.append((f, a, b))
+            term_parameters.append((a, b, f))
 
         return term_parameters
 
     @staticmethod
-    def _terms(x, freq):
-        argument = TWOPI * (freq * x)
-        if isinstance(argument, Quantity):
-            argument = argument.value
+    def _terms(a_amplitude, b_amplitude, frequency):
+        return Sine1D(a_amplitude, frequency), Cosine1D(b_amplitude, frequency)
 
-        return np.sin(argument), np.cos(argument)
+    def _evaluate_term(self, x, a_amplitude, b_amplitude, frequency):
+        sin, cos = self._terms(a_amplitude, b_amplitude, frequency)
 
-    def _evaluate_term(self, x, freq, coeff_a, coeff_b):
-
-        sin, cos = self._terms(x, freq)
-
-        return coeff_a * sin + coeff_b * cos
+        return sin(x) + cos(x)
 
     def evaluate(self, x, *params):
-        term_parameters = self._get_parameters(*params)
+        parameters = self._get_parameters(*params)
 
         value = 0
-        for index in range(self.n_terms):
-
-            value += self._evaluate_term(x, *term_parameters[index])
+        for param in parameters:
+            value += self._evaluate_term(x, *param)
 
         return value
 
+    def _fit_deriv_term(self, x, a_amplitude, b_amplitude, frequency):
+        sin, cos = self._terms(a_amplitude, b_amplitude, frequency)
+
+        d_sin = sin.fit_deriv(x, a_amplitude, frequency, 0)
+        d_cos = cos.fit_deriv(x, b_amplitude, frequency, 0)
+
+        d_a_amplitude = d_sin[0]
+        d_b_amplitude = d_cos[0]
+        d_frequency = d_sin[1] + d_cos[1]
+
+        return [d_a_amplitude, d_b_amplitude, d_frequency]
+
     def fit_deriv(self, x, *params):
-        term_parameters = self._get_parameters(*params)
+        parameters = self._get_parameters(*params)
 
         deriv = []
-        for index in range(self.n_terms):
-            deriv.extend(list(self._terms(x, term_parameters[index][0])))
+        for param in parameters:
+            deriv.extend(self._fit_deriv_term(x, *param))
 
         return deriv
-
-    def _jacobian_term(self, x, freq, coeff_a, coeff_b):
-        sin, cos = self._terms(x, freq)
-
-        coeff = TWOPI * freq
-        if isinstance(coeff, Quantity):
-            coeff = coeff.value
-
-        d_freq = coeff * (coeff_a * cos - coeff_b * sin)
-
-        return [sin, cos, d_freq]
 
     def jacobian(self, x, *params):
-        term_parameters = self._get_parameters(*params)
-
-        deriv = []
-        for index in range(self.n_terms):
-            deriv.extend(self._jacobian_term(x, *term_parameters[index]))
-
-        return deriv
+        return self.fit_deriv(x, *params)
 
     def fix_frequency(self, value, term=0):
-        name = self.param_names[term * 3]
+        name = self.param_names[3 * term + 2]
         parameter = getattr(self, name)
 
         parameter.value = value
         parameter.fixed = True
 
     def unfix_frequency(self, term=0):
-        name = self.param_names[term * 3]
+        name = self.param_names[3 * term + 2]
         parameter = getattr(self, name)
 
         if parameter.fixed:
