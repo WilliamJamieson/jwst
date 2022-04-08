@@ -91,9 +91,6 @@ class FourierSeries1D(Fittable1DModel):
 
         return deriv
 
-    def jacobian(self, x, *params):
-        return self.fit_deriv(x, *params)
-
     def _fix_frequency(self, frequency, term=0):
         name = self.param_names[3 * term + 2]
         parameter = getattr(self, name)

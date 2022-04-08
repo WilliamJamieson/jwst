@@ -82,7 +82,7 @@ class ChiSqOutlierRejectionFitter:
 
     @staticmethod
     def _jacobian(model, x, weights=None):
-        jacobian = np.array(model.jacobian(x, *model.parameters))
+        jacobian = np.array(model.fit_deriv(x, *model.parameters))
         if weights is not None:
             jacobian = np.array([np.ravel(this)
                                  for this in np.array(weights) * jacobian])
