@@ -127,16 +127,15 @@ def fit_quality_stats(stats):
     return np.mean(stats), np.median(stats), np.std(stats),  np.amax(stats)
 
 
-def fit_nfringes(nfringes, main_freq, wavenum, res_fringes, weights, limits, noise_limits):
+def fit_nfringes(main_frequencies, wavenum, res_fringes, weights, limits, noise_limits):
     fitter = ChiSqOutlierRejectionFitter(LevMarLSQFitter())
-    model = FourierSeries1D(nfringes)
+    model = FourierSeries1D.from_frequencies(main_frequencies)
 
     # fix the most significant frequency and fit
-    model.fix_frequency(main_freq)
     new_model, _, _ = fitter(model, wavenum, res_fringes, weights=weights)
 
     # free the most significant frequency and refit
-    new_model.unfix_frequency()
+    new_model.unfix_all_frequencies()
     new_model, new_weights, chi = fitter(new_model, wavenum, res_fringes, weights=weights)
 
     # compute evidence
@@ -492,10 +491,9 @@ def fit_1d_fringes_bayes_evidence(res_fringes, weights, wavenum, ffreq, dffreq, 
     # handle out of slice pixels
     res_fringes = np.nan_to_num(res_fringes)
 
-    # initialise some parameters
+    # initialize some parameters
     res_fringes_proc = res_fringes.copy()
-    nfringes = 0
-    keep_dict = {}
+    main_frequencies = []
     fitted_frequencies = []
 
     # These should be read from an input file
@@ -512,7 +510,7 @@ def fit_1d_fringes_bayes_evidence(res_fringes, weights, wavenum, ffreq, dffreq, 
         "fit_1d_fringes_bayes_evidence: Initial Evidence: {}".format(evidence))
     # END NOTE
 
-    for f in np.arange(max_nfringes):
+    for nfringes, f in enumerate(np.arange(max_nfringes)):
         log.debug(
             "Starting fringe {}".format(f + 1))
 
@@ -528,12 +526,11 @@ def fit_1d_fringes_bayes_evidence(res_fringes, weights, wavenum, ffreq, dffreq, 
         peak = np.argmax(pgram)
         main_freq = 1. / freq[peak]
 
-        # fix the most significant frequency in the fixed dict that is passed to fitter
-        keep_ind = nfringes * 3
-        keep_dict[keep_ind] = main_freq
+        # Add frequency to initial frequency guess list
+        main_frequencies.append(main_freq)
 
         log.debug("fit_1d_fringes_bayes_evidence: creating multisine model of {} freqs".format(nfringes + 1))
-        model, new_evidence, chi = fit_nfringes(nfringes + 1, main_freq, wavenum, res_fringes, weights, limits, noise_limits)
+        model, new_evidence, chi = fit_nfringes(main_frequencies, wavenum, res_fringes, weights, limits, noise_limits)
         log.debug(f"fit_1d_fringes_bayes_evidence: nfringe={nfringes + 1} ev={new_evidence} chi={chi}")
 
         bayes_factor = new_evidence - evidence
@@ -553,8 +550,8 @@ def fit_1d_fringes_bayes_evidence(res_fringes, weights, wavenum, ffreq, dffreq, 
         # subtract the fringes for this frequency
         res_fringe_fit = best_model(wavenum)
         res_fringes_proc = res_fringes.copy() - res_fringe_fit
-        nfringes += 1
 
+    nfringes = len(fitted_frequencies)
     log.debug("fit_1d_fringes_bayes_evidence: optimal={} fringes".format(nfringes))
 
     # create outputs to return

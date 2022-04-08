@@ -94,14 +94,26 @@ class FourierSeries1D(Fittable1DModel):
     def jacobian(self, x, *params):
         return self.fit_deriv(x, *params)
 
-    def fix_frequency(self, value, term=0):
+    def _fix_frequency(self, frequency, term=0):
         name = self.param_names[3 * term + 2]
         parameter = getattr(self, name)
 
-        parameter.value = value
+        parameter.value = frequency
         parameter.fixed = True
 
-    def unfix_frequency(self, term=0):
+    @classmethod
+    def from_frequencies(cls, frequencies):
+        """
+        Construct model from a fixed list of frequencies
+        """
+
+        model = cls(len(frequencies))
+        for term, frequency in enumerate(frequencies):
+            model._fix_frequency(frequency, term)
+
+        return model
+
+    def _unfix_frequency(self, term=0):
         name = self.param_names[3 * term + 2]
         parameter = getattr(self, name)
 
@@ -109,3 +121,7 @@ class FourierSeries1D(Fittable1DModel):
             parameter.fixed = False
         else:
             raise ValueError(f"Term: {term} frequency is not fixed!")
+
+    def unfix_all_frequencies(self):
+        for term in range(self.n_terms):
+            self._unfix_frequency(term)
