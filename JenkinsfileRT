@@ -80,7 +80,7 @@ bc0.build_cmds = [
     "pip install -e .[test,sdp] --no-cache-dir",
     "pip install pytest-xdist",
     // these latest-commit installs are overridden by `requirements-sdp.txt` if it is populated
-    "pip install git+https://github.com/spacetelescope/stdatamodels.git@master git+https://github.com/spacetelescope/stcal.git@main",
+    "pip install git+https://github.com/spacetelescope/stdatamodels.git@master git+https://github.com/WilliamJamieson/stcal.git@bugfix/jenkins_flag",
     "pip install -r requirements-max.txt",
     "pip install -r requirements-sdp.txt",
 ] + PipInject(env.OVERRIDE_REQUIREMENTS) + ["pip list"]
